@@ -1,0 +1,31 @@
+{
+ "schema": "langgraph-runlog/1",
+ "runs": [
+  {
+   "run_id": "8591083e-a6a7-460b-a5fc-e0bd520351c7",
+   "name": "demo-doc-agent",
+   "started_at": "2026-08-28T17:15:52.438+00:00",
+   "duration_ms": 3331,
+   "status": "ok",
+   "meta": {
+    "agent_version": "demo-0.1",
+    "task": "Feature X"
+   },
+   "totals": {
+    "llm_calls": 5,
+    "tool_calls": 2,
+    "node_runs": 5,
+    "input_tokens": 9070,
+    "output_tokens": 613,
+    "cache_read": 1175,
+    "cache_creation": 0,
+    "reasoning": 0,
+    "cost_usd": 0.0516,
+    "duration_ms": 3331,
+    "errors": 0
+   },
+   "file": "8591083e-a6a7-460b-a5fc-e0bd520351c7.json",
+   "source": "recorder"
+  }
+ ]
+}

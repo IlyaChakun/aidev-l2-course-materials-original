@@ -1,0 +1,314 @@
+{
+ "name": "M1 example: linear chain (smart support)",
+ "nodes": [
+  {
+   "id": "note-1",
+   "name": "Sticky Note",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -100,
+    -140
+   ],
+   "parameters": {
+    "content": "## Part 3 — linear prototype (example: smart support)\nRequest → Classifier → First-line operator → Escalation agent → write to DB. The output of each agent is strict JSON (Structured Output Parser), which is also the input of the next one. No branching, loops or memory.",
+    "height": 150,
+    "width": 1980,
+    "color": 4
+   }
+  },
+  {
+   "id": "trigger-1",
+   "name": "Новая заявка",
+   "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    -60,
+    140
+   ],
+   "parameters": {},
+   "webhookId": "demo-webhook-m1"
+  },
+  {
+   "id": "agent-1",
+   "name": "Классификатор",
+   "type": "@n8n/n8n-nodes-langchain.agent",
+   "typeVersion": 2,
+   "position": [
+    240,
+    120
+   ],
+   "parameters": {
+    "promptType": "auto",
+    "hasOutputParser": true,
+    "options": {
+     "systemMessage": "Ты — классификатор заявок техподдержки. Определи категорию, срочность и полноту заявки. Отвечай строго JSON по схеме."
+    }
+   }
+  },
+  {
+   "id": "agent-2",
+   "name": "Оператор 1-й линии",
+   "type": "@n8n/n8n-nodes-langchain.agent",
+   "typeVersion": 2,
+   "position": [
+    720,
+    120
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "options": {
+     "systemMessage": "Ты — оператор первой линии. Готовь ответ по классифицированной заявке. Статусы тикета меняй только через инструменты MCP-сервера. Платёжные вопросы не решаешь — передаёшь агенту эскалации."
+    },
+    "text": "={{ JSON.stringify($json.output) }}"
+   }
+  },
+  {
+   "id": "agent-3",
+   "name": "Агент эскалации",
+   "type": "@n8n/n8n-nodes-langchain.agent",
+   "typeVersion": 2,
+   "position": [
+    1260,
+    120
+   ],
+   "parameters": {
+    "promptType": "define",
+    "hasOutputParser": true,
+    "options": {
+     "systemMessage": "Ты — агент эскалации. Реши: закрыть тикет ответом оператора или эскалировать человеку. Отвечай строго JSON."
+    },
+    "text": "={{ JSON.stringify($json.output) }}"
+   }
+  },
+  {
+   "id": "db-1",
+   "name": "Записать результат в БД",
+   "type": "n8n-nodes-base.postgres",
+   "typeVersion": 2.6,
+   "position": [
+    1680,
+    140
+   ],
+   "parameters": {
+    "operation": "executeQuery",
+    "query": "UPDATE tickets SET status = $1, score = $2, last_modified = NOW() WHERE id = $3;"
+   }
+  },
+  {
+   "id": "lm-1",
+   "name": "OpenAI Chat Model",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    150,
+    360
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "parser-1",
+   "name": "Structured Output Parser",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    330,
+    360
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"category\": {\"enum\": [\"general\", \"account\", \"billing\"]},\n    \"urgency\": {\"enum\": [\"low\", \"normal\", \"high\"]},\n    \"ticket_id\": {\"type\": \"string\"}\n  }\n}"
+   }
+  },
+  {
+   "id": "lm-2",
+   "name": "OpenAI Chat Model1",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    600,
+    360
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "parser-2",
+   "name": "Structured Output Parser1",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    920,
+    360
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"draft_answer\": {\"type\": \"string\"},\n    \"confidence\": {\"type\": \"number\"},\n    \"ticket_id\": {\"type\": \"string\"}\n  }\n}"
+   }
+  },
+  {
+   "id": "mcp-1",
+   "name": "MCP: сервер проекта",
+   "type": "@n8n/n8n-nodes-langchain.mcpClientTool",
+   "typeVersion": 1,
+   "position": [
+    760,
+    360
+   ],
+   "parameters": {
+    "sseEndpoint": "https://mcp.your-project.example/mcp"
+   }
+  },
+  {
+   "id": "lm-3",
+   "name": "OpenAI Chat Model2",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    1170,
+    360
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "parser-3",
+   "name": "Structured Output Parser2",
+   "type": "@n8n/n8n-nodes-langchain.outputParserStructured",
+   "typeVersion": 1.3,
+   "position": [
+    1350,
+    360
+   ],
+   "parameters": {
+    "schemaType": "manual",
+    "inputSchema": "{\n  \"type\": \"object\",\n  \"properties\": {\n    \"decision\": {\"enum\": [\"answered\", \"escalated\"]},\n    \"final_answer\": {\"type\": \"string\"},\n    \"ticket_id\": {\"type\": \"string\"}\n  }\n}"
+   }
+  }
+ ],
+ "connections": {
+  "Новая заявка": {
+   "main": [
+    [
+     {
+      "node": "Классификатор",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Классификатор": {
+   "main": [
+    [
+     {
+      "node": "Оператор 1-й линии",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Оператор 1-й линии": {
+   "main": [
+    [
+     {
+      "node": "Агент эскалации",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Агент эскалации": {
+   "main": [
+    [
+     {
+      "node": "Записать результат в БД",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI Chat Model": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Классификатор",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Structured Output Parser": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "Классификатор",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI Chat Model1": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Оператор 1-й линии",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Structured Output Parser1": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "Оператор 1-й линии",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "MCP: сервер проекта": {
+   "ai_tool": [
+    [
+     {
+      "node": "Оператор 1-й линии",
+      "type": "ai_tool",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI Chat Model2": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Агент эскалации",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Structured Output Parser2": {
+   "ai_outputParser": [
+    [
+     {
+      "node": "Агент эскалации",
+      "type": "ai_outputParser",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ }
+}

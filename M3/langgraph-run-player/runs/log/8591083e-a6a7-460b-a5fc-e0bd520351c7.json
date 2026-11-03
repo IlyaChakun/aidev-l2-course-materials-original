@@ -1,0 +1,706 @@
+{
+ "schema": "langgraph-runlog/1",
+ "run_id": "8591083e-a6a7-460b-a5fc-e0bd520351c7",
+ "name": "demo-doc-agent",
+ "thread_id": "8591083e-a6a7-460b-a5fc-e0bd520351c7",
+ "started_at": "2026-08-28T17:15:52.438+00:00",
+ "duration_ms": 3331,
+ "status": "ok",
+ "meta": {
+  "agent_version": "demo-0.1",
+  "task": "Feature X"
+ },
+ "graph": {
+  "nodes": [
+   {
+    "id": "__start__",
+    "type": "runnable"
+   },
+   {
+    "id": "planner",
+    "type": "runnable"
+   },
+   {
+    "id": "worker",
+    "type": "runnable"
+   },
+   {
+    "id": "reviewer",
+    "type": "runnable"
+   },
+   {
+    "id": "__end__",
+    "type": null
+   }
+  ],
+  "edges": [
+   {
+    "source": "__start__",
+    "target": "planner"
+   },
+   {
+    "source": "planner",
+    "target": "worker"
+   },
+   {
+    "source": "reviewer",
+    "target": "__end__",
+    "conditional": true
+   },
+   {
+    "source": "reviewer",
+    "target": "worker",
+    "conditional": true
+   },
+   {
+    "source": "worker",
+    "target": "reviewer"
+   }
+  ]
+ },
+ "events": [
+  {
+   "id": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "parent": null,
+   "kind": "graph",
+   "name": "demo-doc-agent",
+   "node": null,
+   "step": null,
+   "checkpoint_ns": null,
+   "tags": [],
+   "start_ms": 0,
+   "end_ms": 3331,
+   "status": "ok",
+   "input": {
+    "task": "Feature X",
+    "revisions": 0,
+    "max_revisions": 1,
+    "history": []
+   },
+   "output": {
+    "task": "Feature X",
+    "plan": "1. Collect facts. 2. Write sections A, B, C. 3. Add examples.",
+    "draft": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B, now with the example the reviewer asked for.\n\n## C\nSection C.\n",
+    "needs_revision": false,
+    "feedback": "",
+    "revisions": 1,
+    "max_revisions": 1,
+    "history": [
+     "planner: план готов",
+     "worker: черновик v1",
+     "reviewer: вернул",
+     "worker: черновик v2",
+     "reviewer: одобрил"
+    ]
+   }
+  },
+  {
+   "id": "01a0495e-eaf7-7230-97cb-79322f750e6c",
+   "parent": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "kind": "node",
+   "name": "planner",
+   "node": "planner",
+   "step": 1,
+   "checkpoint_ns": "planner:9839db22-d84d-37e3-2b5c-ce9d49ae44a4",
+   "tags": [
+    "graph:step:1"
+   ],
+   "start_ms": 1,
+   "end_ms": 307,
+   "status": "ok",
+   "output": {
+    "plan": "1. Collect facts. 2. Write sections A, B, C. 3. Add examples.",
+    "history": [
+     "planner: план готов"
+    ]
+   }
+  },
+  {
+   "id": "01a0495e-ec28-7d90-8b80-7c2aa3435fe9",
+   "parent": "01a0495e-eaf7-7230-97cb-79322f750e6c",
+   "kind": "llm",
+   "name": "planner-llm",
+   "node": "planner",
+   "step": 1,
+   "checkpoint_ns": "planner:9839db22-d84d-37e3-2b5c-ce9d49ae44a4",
+   "tags": [],
+   "start_ms": 306,
+   "end_ms": 307,
+   "status": "ok",
+   "model": "demo/planner-small",
+   "provider": "genericfakechatmodel",
+   "params": {},
+   "tools": [],
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are a planner."
+    },
+    {
+     "role": "human",
+     "content": "Feature X"
+    }
+   ],
+   "response": {
+    "role": "ai",
+    "content": "1. Collect facts. 2. Write sections A, B, C. 3. Add examples."
+   },
+   "usage": {
+    "input_tokens": 420,
+    "output_tokens": 38,
+    "total_tokens": 458,
+    "cache_read": 0,
+    "cache_creation": 0,
+    "reasoning": null
+   },
+   "cost_usd": 0.0006,
+   "generation_id": "gen-demo-demo/planner-small-0",
+   "finish_reason": "stop"
+  },
+  {
+   "id": "01a0495e-ec2a-7ac1-98f5-2a2079209391",
+   "parent": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "kind": "node",
+   "name": "worker",
+   "node": "worker",
+   "step": 2,
+   "checkpoint_ns": "worker:f5229341-1092-0112-3d9e-c40dea03fb33",
+   "tags": [
+    "graph:step:2"
+   ],
+   "start_ms": 308,
+   "end_ms": 1316,
+   "status": "ok",
+   "output": {
+    "draft": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B.\n",
+    "history": [
+     "worker: черновик v1"
+    ]
+   }
+  },
+  {
+   "id": "01a0495e-ec2b-7e81-bdd8-85d01423c1cb",
+   "parent": "01a0495e-ec2a-7ac1-98f5-2a2079209391",
+   "kind": "tool",
+   "name": "lookup_facts",
+   "node": "worker",
+   "step": 2,
+   "checkpoint_ns": "worker:f5229341-1092-0112-3d9e-c40dea03fb33",
+   "tags": [],
+   "start_ms": 308,
+   "end_ms": 712,
+   "status": "ok",
+   "input": {
+    "topic": "Feature X"
+   },
+   "output": "3 facts about Feature X: fact-1, fact-2, fact-3"
+  },
+  {
+   "id": "01a0495e-f01a-7933-90af-7c5d2f3a0818",
+   "parent": "01a0495e-ec2a-7ac1-98f5-2a2079209391",
+   "kind": "llm",
+   "name": "worker-llm",
+   "node": "worker",
+   "step": 2,
+   "checkpoint_ns": "worker:f5229341-1092-0112-3d9e-c40dea03fb33",
+   "tags": [],
+   "start_ms": 1315,
+   "end_ms": 1316,
+   "status": "ok",
+   "model": "demo/writer-large",
+   "provider": "genericfakechatmodel",
+   "params": {},
+   "tools": [],
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are a technical writer."
+    },
+    {
+     "role": "human",
+     "content": "Plan:\n1. Collect facts. 2. Write sections A, B, C. 3. Add examples.\nFacts:\n3 facts about Feature X: fact-1, fact-2, fact-3\n"
+    }
+   ],
+   "response": {
+    "role": "ai",
+    "content": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B.\n"
+   },
+   "usage": {
+    "input_tokens": 1850,
+    "output_tokens": 240,
+    "total_tokens": 2090,
+    "cache_read": 0,
+    "cache_creation": 0,
+    "reasoning": null
+   },
+   "cost_usd": 0.012,
+   "generation_id": "gen-demo-demo/writer-large-0",
+   "finish_reason": "stop"
+  },
+  {
+   "id": "01a0495e-f01a-7933-90af-7c6e192e4832",
+   "parent": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "kind": "node",
+   "name": "reviewer",
+   "node": "reviewer",
+   "step": 3,
+   "checkpoint_ns": "reviewer:b28afcca-1a80-5613-769d-df2de7452633",
+   "tags": [
+    "graph:step:3"
+   ],
+   "start_ms": 1316,
+   "end_ms": 1819,
+   "status": "ok",
+   "output": {
+    "needs_revision": true,
+    "feedback": "NEEDS_REVISION: section C is missing; add an example to section B.",
+    "revisions": 1,
+    "history": [
+     "reviewer: вернул"
+    ]
+   }
+  },
+  {
+   "id": "01a0495e-f211-7431-bdd4-074e36035bd2",
+   "parent": "01a0495e-f01a-7933-90af-7c6e192e4832",
+   "kind": "llm",
+   "name": "reviewer-llm",
+   "node": "reviewer",
+   "step": 3,
+   "checkpoint_ns": "reviewer:b28afcca-1a80-5613-769d-df2de7452633",
+   "tags": [],
+   "start_ms": 1819,
+   "end_ms": 1819,
+   "status": "ok",
+   "model": "demo/reviewer-large",
+   "provider": "genericfakechatmodel",
+   "params": {},
+   "tools": [],
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are a strict reviewer."
+    },
+    {
+     "role": "human",
+     "content": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B.\n"
+    }
+   ],
+   "response": {
+    "role": "ai",
+    "content": "NEEDS_REVISION: section C is missing; add an example to section B."
+   },
+   "usage": {
+    "input_tokens": 2100,
+    "output_tokens": 22,
+    "total_tokens": 2122,
+    "cache_read": 0,
+    "cache_creation": 0,
+    "reasoning": null
+   },
+   "cost_usd": 0.011,
+   "generation_id": "gen-demo-demo/reviewer-large-0",
+   "finish_reason": "stop"
+  },
+  {
+   "id": "01a0495e-f212-78a2-89d7-234fb9c1f16b",
+   "parent": "01a0495e-f01a-7933-90af-7c6e192e4832",
+   "kind": "internal",
+   "name": "route",
+   "node": "reviewer",
+   "step": 3,
+   "checkpoint_ns": "reviewer:b28afcca-1a80-5613-769d-df2de7452633",
+   "tags": [],
+   "start_ms": 1819,
+   "end_ms": 1819,
+   "status": "ok",
+   "output": "worker"
+  },
+  {
+   "id": "01a0495e-f212-78a2-89d7-235c00eb93ef",
+   "parent": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "kind": "node",
+   "name": "worker",
+   "node": "worker",
+   "step": 4,
+   "checkpoint_ns": "worker:ae221a08-3acf-a8f9-bd8b-3a60ad62b3ef",
+   "tags": [
+    "graph:step:4"
+   ],
+   "start_ms": 1820,
+   "end_ms": 2825,
+   "status": "ok",
+   "output": {
+    "draft": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B, now with the example the reviewer asked for.\n\n## C\nSection C.\n",
+    "history": [
+     "worker: черновик v2"
+    ]
+   }
+  },
+  {
+   "id": "01a0495e-f212-78a2-89d7-236248793c4a",
+   "parent": "01a0495e-f212-78a2-89d7-235c00eb93ef",
+   "kind": "tool",
+   "name": "lookup_facts",
+   "node": "worker",
+   "step": 4,
+   "checkpoint_ns": "worker:ae221a08-3acf-a8f9-bd8b-3a60ad62b3ef",
+   "tags": [],
+   "start_ms": 1820,
+   "end_ms": 2222,
+   "status": "ok",
+   "input": {
+    "topic": "Feature X"
+   },
+   "output": "3 facts about Feature X: fact-1, fact-2, fact-3"
+  },
+  {
+   "id": "01a0495e-f5ff-7b02-b2e6-10b43ddc3573",
+   "parent": "01a0495e-f212-78a2-89d7-235c00eb93ef",
+   "kind": "llm",
+   "name": "worker-llm",
+   "node": "worker",
+   "step": 4,
+   "checkpoint_ns": "worker:ae221a08-3acf-a8f9-bd8b-3a60ad62b3ef",
+   "tags": [],
+   "start_ms": 2825,
+   "end_ms": 2825,
+   "status": "ok",
+   "model": "demo/writer-large",
+   "provider": "genericfakechatmodel",
+   "params": {},
+   "tools": [],
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are a technical writer."
+    },
+    {
+     "role": "human",
+     "content": "Plan:\n1. Collect facts. 2. Write sections A, B, C. 3. Add examples.\nFacts:\n3 facts about Feature X: fact-1, fact-2, fact-3\nPrevious draft:\n# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B.\n\nFeedback:\nNEEDS_REVISION: section C is missing; add an example to section B."
+    }
+   ],
+   "response": {
+    "role": "ai",
+    "content": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B, now with the example the reviewer asked for.\n\n## C\nSection C.\n"
+   },
+   "usage": {
+    "input_tokens": 2300,
+    "output_tokens": 310,
+    "total_tokens": 2610,
+    "cache_read": 575,
+    "cache_creation": 0,
+    "reasoning": null
+   },
+   "cost_usd": 0.016,
+   "generation_id": "gen-demo-demo/writer-large-1",
+   "finish_reason": "stop"
+  },
+  {
+   "id": "01a0495e-f600-7822-b7f9-edf490388d1d",
+   "parent": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "kind": "node",
+   "name": "reviewer",
+   "node": "reviewer",
+   "step": 5,
+   "checkpoint_ns": "reviewer:e46046cd-8f9a-93ac-71d6-1e581bb04af2",
+   "tags": [
+    "graph:step:5"
+   ],
+   "start_ms": 2826,
+   "end_ms": 3330,
+   "status": "ok",
+   "output": {
+    "needs_revision": false,
+    "feedback": "",
+    "revisions": 1,
+    "history": [
+     "reviewer: одобрил"
+    ]
+   }
+  },
+  {
+   "id": "01a0495e-f7f8-7683-8ca0-c17107b58783",
+   "parent": "01a0495e-f600-7822-b7f9-edf490388d1d",
+   "kind": "llm",
+   "name": "reviewer-llm",
+   "node": "reviewer",
+   "step": 5,
+   "checkpoint_ns": "reviewer:e46046cd-8f9a-93ac-71d6-1e581bb04af2",
+   "tags": [],
+   "start_ms": 3330,
+   "end_ms": 3330,
+   "status": "ok",
+   "model": "demo/reviewer-large",
+   "provider": "genericfakechatmodel",
+   "params": {},
+   "tools": [],
+   "messages": [
+    {
+     "role": "system",
+     "content": "You are a strict reviewer."
+    },
+    {
+     "role": "human",
+     "content": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B, now with the example the reviewer asked for.\n\n## C\nSection C.\n"
+    }
+   ],
+   "response": {
+    "role": "ai",
+    "content": "APPROVED"
+   },
+   "usage": {
+    "input_tokens": 2400,
+    "output_tokens": 3,
+    "total_tokens": 2403,
+    "cache_read": 600,
+    "cache_creation": 0,
+    "reasoning": null
+   },
+   "cost_usd": 0.012,
+   "generation_id": "gen-demo-demo/reviewer-large-1",
+   "finish_reason": "stop"
+  },
+  {
+   "id": "01a0495e-f7f8-7683-8ca0-c186bbf0f791",
+   "parent": "01a0495e-f600-7822-b7f9-edf490388d1d",
+   "kind": "internal",
+   "name": "route",
+   "node": "reviewer",
+   "step": 5,
+   "checkpoint_ns": "reviewer:e46046cd-8f9a-93ac-71d6-1e581bb04af2",
+   "tags": [],
+   "start_ms": 3330,
+   "end_ms": 3330,
+   "status": "ok",
+   "output": "__end__"
+  }
+ ],
+ "state_snapshots": [
+  {
+   "at_ms": 0,
+   "event": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "label": "вход графа",
+   "full": true,
+   "state": {
+    "task": "Feature X",
+    "revisions": 0,
+    "max_revisions": 1,
+    "history": []
+   }
+  },
+  {
+   "at_ms": 1,
+   "event": "01a0495e-eaf7-7230-97cb-79322f750e6c",
+   "label": "перед planner (шаг 1)",
+   "full": false,
+   "changed": {}
+  },
+  {
+   "at_ms": 308,
+   "event": "01a0495e-ec2a-7ac1-98f5-2a2079209391",
+   "label": "перед worker (шаг 2)",
+   "full": false,
+   "changed": {
+    "plan": "1. Collect facts. 2. Write sections A, B, C. 3. Add examples.",
+    "history": [
+     "planner: план готов"
+    ]
+   }
+  },
+  {
+   "at_ms": 1316,
+   "event": "01a0495e-f01a-7933-90af-7c6e192e4832",
+   "label": "перед reviewer (шаг 3)",
+   "full": false,
+   "changed": {
+    "draft": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B.\n",
+    "history": [
+     "planner: план готов",
+     "worker: черновик v1"
+    ]
+   }
+  },
+  {
+   "at_ms": 1820,
+   "event": "01a0495e-f212-78a2-89d7-235c00eb93ef",
+   "label": "перед worker (шаг 4)",
+   "full": false,
+   "changed": {
+    "needs_revision": true,
+    "feedback": "NEEDS_REVISION: section C is missing; add an example to section B.",
+    "revisions": 1,
+    "history": [
+     "planner: план готов",
+     "worker: черновик v1",
+     "reviewer: вернул"
+    ]
+   }
+  },
+  {
+   "at_ms": 2826,
+   "event": "01a0495e-f600-7822-b7f9-edf490388d1d",
+   "label": "перед reviewer (шаг 5)",
+   "full": false,
+   "changed": {
+    "draft": "# Feature X\n\n## A\nFirst draft of section A.\n\n## B\nSection B, now with the example the reviewer asked for.\n\n## C\nSection C.\n",
+    "history": [
+     "planner: план готов",
+     "worker: черновик v1",
+     "reviewer: вернул",
+     "worker: черновик v2"
+    ]
+   }
+  },
+  {
+   "at_ms": 3331,
+   "event": "01a0495e-eaf6-7590-ae61-e84adbfab7e7",
+   "label": "выход графа",
+   "full": false,
+   "changed": {
+    "needs_revision": false,
+    "feedback": "",
+    "history": [
+     "planner: план готов",
+     "worker: черновик v1",
+     "reviewer: вернул",
+     "worker: черновик v2",
+     "reviewer: одобрил"
+    ]
+   }
+  }
+ ],
+ "checkpoints": [
+  {
+   "checkpoint_id": "1f1a3041-f3b9-61ce-bfff-2a89bf745c84",
+   "parent_checkpoint_id": null,
+   "step": -1,
+   "source": "input",
+   "next": [
+    "__start__"
+   ],
+   "created_at": "2026-08-28T17:15:52.439031+00:00",
+   "changed_keys": [
+    "history"
+   ],
+   "tasks": [
+    "__start__"
+   ]
+  },
+  {
+   "checkpoint_id": "1f1a3041-f3b9-6e80-8000-58507f8d7b32",
+   "parent_checkpoint_id": "1f1a3041-f3b9-61ce-bfff-2a89bf745c84",
+   "step": 0,
+   "source": "loop",
+   "next": [
+    "planner"
+   ],
+   "created_at": "2026-08-28T17:15:52.439355+00:00",
+   "changed_keys": [
+    "max_revisions",
+    "revisions",
+    "task"
+   ],
+   "tasks": [
+    "planner"
+   ]
+  },
+  {
+   "checkpoint_id": "1f1a3041-f6a7-6886-8001-33c0ed687ab0",
+   "parent_checkpoint_id": "1f1a3041-f3b9-6e80-8000-58507f8d7b32",
+   "step": 1,
+   "source": "loop",
+   "next": [
+    "worker"
+   ],
+   "created_at": "2026-08-28T17:15:52.746391+00:00",
+   "changed_keys": [
+    "history",
+    "plan"
+   ],
+   "tasks": [
+    "worker"
+   ]
+  },
+  {
+   "checkpoint_id": "1f1a3042-0045-6280-8002-9f6dc6869446",
+   "parent_checkpoint_id": "1f1a3041-f6a7-6886-8001-33c0ed687ab0",
+   "step": 2,
+   "source": "loop",
+   "next": [
+    "reviewer"
+   ],
+   "created_at": "2026-08-28T17:15:53.754670+00:00",
+   "changed_keys": [
+    "draft",
+    "history"
+   ],
+   "tasks": [
+    "reviewer"
+   ]
+  },
+  {
+   "checkpoint_id": "1f1a3042-0513-6230-8003-b6657a59da3d",
+   "parent_checkpoint_id": "1f1a3042-0045-6280-8002-9f6dc6869446",
+   "step": 3,
+   "source": "loop",
+   "next": [
+    "worker"
+   ],
+   "created_at": "2026-08-28T17:15:54.258468+00:00",
+   "changed_keys": [
+    "feedback",
+    "history",
+    "needs_revision",
+    "revisions"
+   ],
+   "tasks": [
+    "worker"
+   ]
+  },
+  {
+   "checkpoint_id": "1f1a3042-0eaa-63a2-8004-ced6ab6984af",
+   "parent_checkpoint_id": "1f1a3042-0513-6230-8003-b6657a59da3d",
+   "step": 4,
+   "source": "loop",
+   "next": [
+    "reviewer"
+   ],
+   "created_at": "2026-08-28T17:15:55.264081+00:00",
+   "changed_keys": [
+    "draft",
+    "history"
+   ],
+   "tasks": [
+    "reviewer"
+   ]
+  },
+  {
+   "checkpoint_id": "1f1a3042-137b-698a-8005-f718e03673b5",
+   "parent_checkpoint_id": "1f1a3042-0eaa-63a2-8004-ced6ab6984af",
+   "step": 5,
+   "source": "loop",
+   "next": [],
+   "created_at": "2026-08-28T17:15:55.769240+00:00",
+   "changed_keys": [
+    "feedback",
+    "history",
+    "needs_revision"
+   ],
+   "tasks": []
+  }
+ ],
+ "totals": {
+  "llm_calls": 5,
+  "tool_calls": 2,
+  "node_runs": 5,
+  "input_tokens": 9070,
+  "output_tokens": 613,
+  "cache_read": 1175,
+  "cache_creation": 0,
+  "reasoning": 0,
+  "cost_usd": 0.0516,
+  "duration_ms": 3331,
+  "errors": 0
+ }
+}

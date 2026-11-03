@@ -1,0 +1,548 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LangGraph Run Player</title>
+<style>
+/* ---------- palette (light by default, dark following the system theme) ---------- */
+:root {
+  color-scheme: light;
+  --bg: #f5f4f1; --surface: #fcfcfb; --surface-2: #f0efec; --line: #dedcd6; --line-strong: #b9b6ad;
+  --text: #0b0b0b; --text-2: #52514e; --text-3: #8a8880;
+  --accent: #2a78d6; --accent-bg: #e3eefb;
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100; --s5: #e87ba4; --s6: #008300; --s7: #4a3aa7; --s8: #e34948;
+  --ok: #008300; --warn: #eda100; --bad: #e34948;
+  --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace;
+}
+@media (prefers-color-scheme: dark) {
+  :root:not([data-theme="light"]) {
+    color-scheme: dark;
+    --bg: #131312; --surface: #1a1a19; --surface-2: #232321; --line: #2f2f2c; --line-strong: #4a4a45;
+    --text: #ffffff; --text-2: #c3c2b7; --text-3: #8a8a82;
+    --accent: #3987e5; --accent-bg: #1c2f4a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --ok: #3fb950; --warn: #c98500; --bad: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+    color-scheme: dark;
+    --bg: #131312; --surface: #1a1a19; --surface-2: #232321; --line: #2f2f2c; --line-strong: #4a4a45;
+    --text: #ffffff; --text-2: #c3c2b7; --text-3: #8a8a82;
+    --accent: #3987e5; --accent-bg: #1c2f4a;
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500; --s5: #d55181; --s6: #008300; --s7: #9085e9; --s8: #e66767;
+    --ok: #3fb950; --warn: #c98500; --bad: #e66767;
+}
+* { box-sizing: border-box; }
+html, body { margin: 0; height: 100%; }
+body { background: var(--bg); color: var(--text); font: 13px/1.45 -apple-system, "Segoe UI", Inter, Roboto, sans-serif; }
+button, select { font: inherit; color: inherit; }
+button { background: var(--surface-2); border: 1px solid var(--line); border-radius: 6px; padding: 4px 10px; cursor: pointer; }
+button:hover { border-color: var(--line-strong); }
+button.primary { background: var(--accent); color: #fff; border-color: var(--accent); }
+select { background: var(--surface); border: 1px solid var(--line); border-radius: 6px; padding: 4px 8px; max-width: 46vw; }
+code, .mono { font-family: var(--mono); font-size: 12px; }
+a { color: var(--accent); }
+
+#app { display: grid; grid-template-rows: auto 1fr; height: 100vh; }
+header { display: flex; gap: 12px; align-items: center; padding: 8px 14px; border-bottom: 1px solid var(--line); background: var(--surface); flex-wrap: wrap; }
+header .brand { font-weight: 650; letter-spacing: .2px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; }
+.chip { padding: 2px 8px; border-radius: 999px; background: var(--surface-2); border: 1px solid var(--line); color: var(--text-2); font-size: 12px; white-space: nowrap; }
+.chip.ok { border-color: var(--ok); color: var(--ok); } .chip.bad { border-color: var(--bad); color: var(--bad); }
+
+main { display: grid; grid-template-columns: 1fr 340px; min-height: 0; }
+.left { display: grid; grid-template-rows: auto auto auto minmax(0, 1fr); min-height: 0; overflow: hidden; }
+aside { border-left: 1px solid var(--line); background: var(--surface); overflow: auto; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+.card { background: var(--surface); border: 1px solid var(--line); border-radius: 10px; padding: 10px 12px; }
+.card h3 { margin: 0 0 8px; font-size: 12px; text-transform: uppercase; letter-spacing: .6px; color: var(--text-3); font-weight: 600; }
+.kv { display: grid; grid-template-columns: auto 1fr; gap: 3px 10px; font-size: 12px; }
+.kv .k { color: var(--text-2); } .kv .v { text-align: right; font-family: var(--mono); }
+.hero { font-size: 22px; font-weight: 650; letter-spacing: -.3px; }
+.muted { color: var(--text-3); }
+table { border-collapse: collapse; width: 100%; font-size: 12px; }
+th, td { text-align: left; padding: 4px 6px; border-bottom: 1px solid var(--line); vertical-align: top; }
+th { color: var(--text-3); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: .4px; }
+td.num, th.num { text-align: right; font-family: var(--mono); }
+tr.active td { background: var(--accent-bg); }
+tr.clickable { cursor: pointer; } tr.clickable:hover td { background: var(--surface-2); }
+
+/* ---------- player ---------- */
+.player { margin: 12px 14px 0; }
+.now { display: grid; grid-template-columns: 1fr; gap: 6px; min-height: 150px; }
+.now-head { display: flex; gap: 10px; align-items: baseline; flex-wrap: wrap; }
+.now-title { font-size: 18px; font-weight: 650; }
+.now-sub { color: var(--text-2); font-family: var(--mono); font-size: 12px; }
+.now-body { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.now-body .box { background: var(--surface-2); border-radius: 8px; padding: 8px 10px; max-height: 150px; overflow: auto; font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; }
+.now-body .box .lbl { font-family: inherit; color: var(--text-3); text-transform: uppercase; font-size: 10px; letter-spacing: .5px; margin-bottom: 4px; }
+.controls { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+.controls input[type=range] { flex: 1; accent-color: var(--accent); }
+.controls .time { font-family: var(--mono); min-width: 120px; text-align: right; color: var(--text-2); }
+.dot { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+
+/* ---------- timeline ---------- */
+.timeline { margin: 10px 14px 0; }
+.timeline svg { width: 100%; display: block; background: var(--surface); border: 1px solid var(--line); border-radius: 10px; }
+.timeline .lane-label { fill: var(--text-3); font-size: 10px; text-transform: uppercase; letter-spacing: .5px; }
+.timeline .axis text { fill: var(--text-3); font-size: 10px; font-family: var(--mono); }
+.timeline .axis line { stroke: var(--line); }
+.timeline .span { cursor: pointer; }
+.timeline .span text { fill: #fff; font-size: 10.5px; pointer-events: none; }
+.timeline .span.dim rect { opacity: .55; }
+.timeline .span.active rect { stroke: var(--text); stroke-width: 1.5; }
+.timeline .marker { cursor: pointer; }
+.timeline .playhead { stroke: var(--bad); stroke-width: 1.5; pointer-events: none; }
+.tooltip { position: fixed; z-index: 10; background: var(--text); color: var(--bg); padding: 6px 8px; border-radius: 6px; font-size: 11.5px; pointer-events: none; max-width: 420px; white-space: pre-wrap; font-family: var(--mono); display: none; }
+
+/* ---------- tabs ---------- */
+.tabs { display: flex; gap: 4px; margin: 10px 14px 0; border-bottom: 1px solid var(--line); }
+.tabs button { border: none; border-bottom: 2px solid transparent; border-radius: 0; background: none; padding: 6px 10px; color: var(--text-2); }
+.tabs button.on { color: var(--text); border-bottom-color: var(--accent); }
+.panes { min-height: 0; overflow: auto; padding: 10px 14px 14px; }
+.pane { display: none; } .pane.on { display: block; }
+
+/* graph diagram */
+.graph svg { width: 100%; max-width: 900px; display: block; }
+.graph .node rect { fill: var(--surface); stroke: var(--line-strong); rx: 8; }
+.graph .node text { fill: var(--text); font-size: 12px; font-weight: 600; }
+.graph .node.terminal rect { fill: var(--surface-2); stroke-dasharray: 3 3; }
+.graph .node.terminal text { fill: var(--text-2); font-weight: 500; }
+.graph .node.active rect { stroke-width: 2.5; }
+.graph .node.done rect { }
+.graph .edge { stroke: var(--line-strong); stroke-width: 1.5; fill: none; }
+.graph .edge.conditional { stroke-dasharray: 5 4; }
+.graph .edge.taken { stroke: var(--accent); stroke-width: 2.5; }
+.graph .edge-label { fill: var(--text-3); font-size: 10px; }
+.graph .badge { fill: var(--text-2); font-size: 10px; font-family: var(--mono); }
+
+/* state */
+.state-list { display: grid; grid-template-columns: 1fr; gap: 4px; }
+.state-row { display: grid; grid-template-columns: 260px 1fr; gap: 10px; padding: 5px 8px; border-radius: 6px; border: 1px solid transparent; }
+.state-row.changed { background: var(--accent-bg); border-color: var(--accent); }
+.state-row .key { font-family: var(--mono); font-weight: 600; cursor: pointer; }
+.state-row .val { font-family: var(--mono); font-size: 11.5px; white-space: pre-wrap; word-break: break-word; color: var(--text-2); max-height: 60px; overflow: hidden; }
+.state-row.open .val { max-height: none; color: var(--text); }
+.state-tools { display: flex; gap: 10px; align-items: center; margin-bottom: 8px; flex-wrap: wrap; }
+.state-tools label { color: var(--text-2); }
+
+/* event details */
+.msg { border: 1px solid var(--line); border-radius: 8px; margin-bottom: 6px; }
+.msg summary { cursor: pointer; padding: 5px 8px; font-size: 12px; color: var(--text-2); }
+.msg pre { margin: 0; padding: 8px; font-size: 11.5px; white-space: pre-wrap; word-break: break-word; max-height: 320px; overflow: auto; border-top: 1px solid var(--line); }
+.empty { color: var(--text-3); padding: 30px; text-align: center; }
+kbd { font-family: var(--mono); font-size: 11px; border: 1px solid var(--line-strong); border-bottom-width: 2px; border-radius: 4px; padding: 0 5px; }
+</style>
+</head>
+<body>
+<div id="app">
+  <header>
+    <div class="brand">LangGraph · run player</div>
+    <select id="runSelect" title="Run"></select>
+    <div class="chips" id="runChips"></div>
+    <span style="flex:1"></span>
+    <button id="reloadBtn" title="re-read index.json">⟳ refresh</button>
+    <span class="muted" style="font-size:11px"><kbd>space</kbd> play · <kbd>←</kbd><kbd>→</kbd> ±2s · <kbd>,</kbd><kbd>.</kbd> event</span>
+  </header>
+  <main>
+    <section class="left">
+      <div class="player card">
+        <div class="now">
+          <div class="now-head"><span class="now-title" id="nowTitle">—</span><span class="now-sub" id="nowSub"></span></div>
+          <div class="now-body" id="nowBody"></div>
+        </div>
+        <div class="controls">
+          <button id="btnPrev" title="previous event">⏮</button>
+          <button id="btnPlay" class="primary" title="play/pause">▶</button>
+          <button id="btnNext" title="next event">⏭</button>
+          <select id="speed"><option>1</option><option>2</option><option selected>4</option><option>8</option><option>16</option><option>32</option></select>
+          <input type="range" id="seek" min="0" max="1000" value="0">
+          <span class="time" id="timeLabel">0:00.0 / 0:00.0</span>
+        </div>
+      </div>
+      <div class="timeline" id="timeline"></div>
+      <div class="tabs" id="tabs">
+        <button data-pane="graph" class="on">Graph diagram</button>
+        <button data-pane="state">State</button>
+        <button data-pane="checkpoints">Checkpoints</button>
+        <button data-pane="events">Events</button>
+        <button data-pane="about">Format</button>
+      </div>
+      <div class="panes">
+        <div class="pane graph on" id="paneGraph"></div>
+        <div class="pane" id="paneState"></div>
+        <div class="pane" id="paneCheckpoints"></div>
+        <div class="pane" id="paneEvents"></div>
+        <div class="pane" id="paneAbout">
+          <p>The player reads <code>runs/log/index.json</code> and the logs <code>runs/log/&lt;run_id&gt;.json</code> of schema <code>langgraph-runlog/1</code>.
+          The log is written by <code>runlog.RunRecorder</code> — a regular LangChain callback handler that can be passed in
+          <code>config["callbacks"]</code> of any LangGraph graph. It recognizes nodes from the <code>langgraph_node</code>/<code>langgraph_step</code> metadata,
+          LLM calls — from chat model events, tools — from tool events, checkpoints — from <code>graph.get_state_history()</code>.
+          Details and how to adapt it to your own graph — <code>README.md</code>.</p>
+        </div>
+      </div>
+    </section>
+    <aside id="side"></aside>
+  </main>
+</div>
+<div class="tooltip" id="tooltip"></div>
+
+<script>
+/* =====================================================================
+   Data
+   ===================================================================== */
+const LOG_BASE = '../runs/log/';
+const PALETTE = ['--s1','--s2','--s3','--s4','--s5','--s6','--s7','--s8'];
+const S = { index: [], log: null, run: null, t: 0, playing: false, speed: 4, raf: null, lastTs: 0, selected: null, tab: 'graph', stateOnlyChanged: false };
+
+const $ = (id) => document.getElementById(id);
+const esc = (s) => String(s ?? '').replace(/[&<>"]/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+const fmtMs = (ms) => { ms = Math.max(0, ms|0); const m = Math.floor(ms/60000), s = ((ms%60000)/1000); return `${m}:${s.toFixed(1).padStart(4,'0')}`; };
+const fmtDur = (ms) => ms == null ? '—' : ms < 1000 ? `${ms} ms` : `${(ms/1000).toFixed(1)} s`;
+const fmtInt = (n) => n == null ? '—' : Number(n).toLocaleString('ru-RU');
+const fmtUsd = (n) => n == null ? '—' : `$${Number(n).toFixed(4)}`;
+const short = (s, n=160) => { s = typeof s === 'string' ? s : JSON.stringify(s); return s == null ? '' : (s.length > n ? s.slice(0, n) + '…' : s); };
+const cssVar = (name) => getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+
+async function fetchJson(name) {
+  if (window.EMBEDDED_RUNS) { const d = window.EMBEDDED_RUNS[name]; if (!d) throw new Error(`no embedded data: ${name}`); return d; }
+  const r = await fetch(LOG_BASE + name, { cache: 'no-store' });
+  if (!r.ok) throw new Error(`${name}: HTTP ${r.status}`);
+  return r.json();
+}
+async function loadIndex() {
+  const idx = await fetchJson('index.json');
+  S.index = idx.runs || [];
+  const sel = $('runSelect'); const prev = sel.value; sel.innerHTML = '';
+  for (const run of S.index) {
+    const o = document.createElement('option'); o.value = run.file;
+    const when = run.started_at.replace('T', ' ').slice(0, 19);
+    const feat = run.meta?.feature_name ? ` · ${run.meta.feature_name}` : '';
+    o.textContent = `${when} · ${run.name}${feat} · ${fmtDur(run.duration_ms)} · ${fmtUsd(run.totals?.cost_usd)} · ${run.status}${run.source === 'langsmith-backfill' ? ' · (from LangSmith)' : ''}`;
+    sel.appendChild(o);
+  }
+  if (!S.index.length) { $('nowTitle').textContent = 'No logs'; $('nowSub').textContent = 'runs/log/index.json is empty — make a run'; return; }
+  sel.value = S.index.some(r => r.file === prev) ? prev : S.index[0].file;
+  await loadRun(sel.value);
+}
+
+async function loadRun(file) {
+  const log = await fetchJson(file);
+  S.log = log; S.run = prepare(log); S.t = 0; S.selected = null; stop();
+  renderChips(); renderTimeline(); renderGraph(); renderCheckpoints(); renderEvents(); renderSide();
+  setT(0);
+}
+
+/* Preprocessing: event depth, node colors, cumulative state snapshots */
+function prepare(log) {
+  const byId = new Map(log.events.map(e => [e.id, e]));
+  for (const e of log.events) { let d = 0, p = e.parent; while (p && byId.has(p)) { d++; p = byId.get(p).parent; } e.depth = d; }
+  const graphNodes = (log.graph?.nodes || []).map(n => n.id).filter(n => !n.startsWith('__'));
+  const seen = [...graphNodes];
+  for (const e of log.events) if (e.kind === 'node' && !seen.includes(e.name)) seen.push(e.name);
+  const color = {}; seen.forEach((n, i) => color[n] = `var(${PALETTE[i % PALETTE.length]})`);
+  // snapshots → full state at each moment
+  let state = {}; const snaps = [];
+  for (const s of log.state_snapshots || []) {
+    state = s.full ? { ...s.state } : { ...state, ...(s.changed || {}) };
+    snaps.push({ at_ms: s.at_ms, label: s.label, event: s.event, changed: s.full ? Object.keys(s.state) : Object.keys(s.changed || {}), state });
+  }
+  const duration = Math.max(log.duration_ms || 0, ...log.events.map(e => e.end_ms || e.start_ms || 0), 1);
+  const nodeEvents = log.events.filter(e => e.kind === 'node');
+  return { byId, color, snaps, duration, nodeEvents, llmEvents: log.events.filter(e => e.kind === 'llm'), toolEvents: log.events.filter(e => e.kind === 'tool') };
+}
+const nodeColor = (name) => S.run.color[name] || 'var(--s8)';
+
+/* The event that is "playing" at moment t: the deepest of llm/tool/node/graph */
+function eventAt(t) {
+  let best = null;
+  for (const e of S.log.events) {
+    if (e.kind === 'internal') continue;
+    const end = e.end_ms ?? S.run.duration;
+    if (e.start_ms <= t && t < Math.max(end, e.start_ms + 1)) { if (!best || e.depth > best.depth || (e.depth === best.depth && e.start_ms > best.start_ms)) best = e; }
+  }
+  return best;
+}
+const nodeAt = (t) => { let b = null; for (const e of S.run.nodeEvents) { const end = e.end_ms ?? S.run.duration; if (e.start_ms <= t && t < Math.max(end, e.start_ms + 1)) b = e; } return b; };
+const snapAt = (t) => { let b = null; for (const s of S.run.snaps) if (s.at_ms <= t) b = s; return b; };
+const lastNodeBefore = (t) => { let b = null; for (const e of S.run.nodeEvents) if ((e.end_ms ?? e.start_ms) <= t) b = e; return b; };
+
+/* =====================================================================
+   Player
+   ===================================================================== */
+function play() { if (!S.log) return; if (S.t >= S.run.duration) S.t = 0; S.playing = true; $('btnPlay').textContent = '⏸'; S.lastTs = performance.now(); S.raf = requestAnimationFrame(tick); }
+function stop() { S.playing = false; $('btnPlay').textContent = '▶'; if (S.raf) cancelAnimationFrame(S.raf); S.raf = null; }
+function tick(ts) { if (!S.playing) return; const dt = ts - S.lastTs; S.lastTs = ts; setT(S.t + dt * S.speed); if (S.t >= S.run.duration) { stop(); return; } S.raf = requestAnimationFrame(tick); }
+function setT(t) {
+  if (!S.log) return;
+  S.t = Math.max(0, Math.min(t, S.run.duration));
+  $('seek').value = Math.round(S.t / S.run.duration * 1000);
+  $('timeLabel').textContent = `${fmtMs(S.t)} / ${fmtMs(S.run.duration)}`;
+  const ev = S.selected && S.selected.start_ms <= S.t && S.t < (S.selected.end_ms ?? S.run.duration) ? S.selected : eventAt(S.t);
+  renderNow(ev); updatePlayhead(); updateGraphActive(); renderState(); updateCheckpointActive(); updateEventsActive(ev); renderDetails(ev);
+}
+function seekToEvent(ev) { S.selected = ev; setT(ev.start_ms); }
+function stepEvent(dir) {
+  const evs = S.log.events.filter(e => e.kind !== 'internal').sort((a, b) => a.start_ms - b.start_ms);
+  const cur = eventAt(S.t); let i = evs.indexOf(cur); if (i < 0) i = 0;
+  const next = evs[Math.max(0, Math.min(evs.length - 1, i + dir))]; if (next) seekToEvent(next);
+}
+
+/* =====================================================================
+   Layout: header and "now playing"
+   ===================================================================== */
+function renderChips() {
+  const l = S.log, t = l.totals || {};
+  const chips = [
+    [`${l.status}`, l.status === 'ok' ? 'ok' : 'bad'],
+    [`run ${l.run_id.slice(0, 8)}`], [l.thread_id ? `thread ${l.thread_id.slice(0, 8)}` : 'no checkpointer'],
+    [`${fmtDur(l.duration_ms)}`], [`${t.llm_calls} LLM · ${t.node_runs} nodes${t.tool_calls ? ` · ${t.tool_calls} tools` : ''}`],
+    [`${fmtUsd(t.cost_usd)}`], [`${fmtInt(t.input_tokens)} → ${fmtInt(t.output_tokens)} tok`],
+    [l.meta?.agent_version || ''], [l.meta?.source === 'langsmith-backfill' ? 'backfill from LangSmith' : 'recorded by the recorder'],
+  ].filter(c => c[0]);
+  $('runChips').innerHTML = chips.map(([txt, cls]) => `<span class="chip ${cls || ''}">${esc(txt)}</span>`).join('');
+}
+function kindLabel(e) { return { graph: 'graph', node: 'node', llm: 'model call', tool: 'tool', internal: 'internal' }[e.kind] || e.kind; }
+function renderNow(ev) {
+  if (!ev) { $('nowTitle').textContent = S.t >= S.run.duration ? 'End of run' : '…'; $('nowSub').textContent = ''; $('nowBody').innerHTML = ''; return; }
+  const c = ev.kind === 'graph' ? 'var(--text-3)' : nodeColor(ev.node || ev.name);
+  const title = ev.kind === 'llm' ? `${esc(kindLabel(ev))}: ${esc((ev.model || ev.name).replace(/^.*\//, ''))}` + (ev.node ? ` <span class="muted" style="font-weight:500">in node ${esc(ev.node)}</span>` : '') : `${esc(kindLabel(ev))}: ${esc(ev.name)}`;
+  $('nowTitle').innerHTML = `<span class="dot" style="background:${c}"></span>${title}`;
+  const parts = [];
+  if (ev.step != null) parts.push(`step ${ev.step}`); if (ev.node && ev.kind !== 'node') parts.push(`node ${ev.node}`);
+  if (ev.model) parts.push(ev.model); parts.push(`${fmtMs(ev.start_ms)} → ${ev.end_ms != null ? fmtMs(ev.end_ms) : '…'} (${fmtDur(ev.end_ms != null ? ev.end_ms - ev.start_ms : null)})`);
+  if (ev.usage?.input_tokens != null) parts.push(`${fmtInt(ev.usage.input_tokens)} → ${fmtInt(ev.usage.output_tokens)} tok`); if (ev.cost_usd != null) parts.push(fmtUsd(ev.cost_usd));
+  if (ev.status === 'error') parts.push('ERROR');
+  $('nowSub').textContent = parts.join(' · ');
+  const box = (lbl, body) => `<div class="box"><div class="lbl">${esc(lbl)}</div>${esc(body)}</div>`;
+  let html = '';
+  if (ev.kind === 'llm') {
+    const last = (ev.messages || []).slice(-1)[0];
+    html = box(`input · ${(ev.messages || []).length} msgs, last: ${last?.role || ''}`, short(last?.content, 900))
+         + box(`response${ev.response?.tool_calls?.length ? ' · tool call ' + ev.response.tool_calls.map(t => t.name).join(', ') : ''}`,
+               ev.response?.tool_calls?.length && !ev.response.content ? JSON.stringify(ev.response.tool_calls[0].args ?? ev.response.tool_calls[0], null, 1) : short(ev.response?.content, 900));
+  } else if (ev.kind === 'node') {
+    const keys = Object.keys(ev.output || {});
+    html = box(`state update · ${keys.length} keys`, keys.map(k => `${k}: ${short(ev.output[k], 200)}`).join('\n')) + box('inside', S.log.events.filter(x => x.parent === ev.id && x.kind !== 'internal').map(x => `${kindLabel(x)} ${x.name}${x.model ? ' · ' + x.model : ''} · ${fmtDur((x.end_ms ?? 0) - x.start_ms)}`).join('\n') || '—');
+  } else if (ev.kind === 'tool') {
+    html = box('input', short(ev.input, 900)) + box('output', short(ev.output, 900));
+  } else if (ev.kind === 'graph') {
+    const inp = ev.input || {}; html = box(`graph input · ${Object.keys(inp).length} keys`, Object.keys(inp).map(k => `${k}: ${short(inp[k], 120)}`).join('\n')) + box('summary', Object.keys(ev.output || {}).length ? `${fmtDur(ev.end_ms - ev.start_ms)}, ${S.log.totals.llm_calls} calls, ${fmtUsd(S.log.totals.cost_usd)}` : '…');
+  }
+  if (ev.error) html += box('error', ev.error);
+  $('nowBody').innerHTML = html;
+}
+
+/* =====================================================================
+   Timeline (SVG): node / LLM / tool lanes, state and checkpoint markers
+   ===================================================================== */
+const TL = { left: 92, right: 14, laneH: 26, top: 22 };
+function renderTimeline() {
+  const host = $('timeline'); const W = host.clientWidth || 900; const dur = S.run.duration;
+  const lanes = [['Nodes', S.run.nodeEvents], ['LLM', S.run.llmEvents]];
+  if (S.run.toolEvents.length) lanes.push(['Tools', S.run.toolEvents]);
+  lanes.push(['State', null], ['Checkpoints', null]);
+  const H = TL.top + lanes.length * TL.laneH + 8;
+  const x = (ms) => TL.left + (ms / dur) * (W - TL.left - TL.right);
+  let svg = `<svg viewBox="0 0 ${W} ${H}" width="${W}" height="${H}">`;
+  // time axis
+  const ticks = 8; svg += '<g class="axis">';
+  for (let i = 0; i <= ticks; i++) { const ms = dur * i / ticks; svg += `<line x1="${x(ms)}" y1="${TL.top - 4}" x2="${x(ms)}" y2="${H - 6}"/><text x="${x(ms)}" y="12" text-anchor="middle">${fmtMs(ms)}</text>`; }
+  svg += '</g>';
+  lanes.forEach(([label, evs], li) => {
+    const y = TL.top + li * TL.laneH;
+    svg += `<text class="lane-label" x="8" y="${y + 17}">${esc(label)}</text>`;
+    if (evs) {
+      for (const e of evs) {
+        const x0 = x(e.start_ms), x1 = x(e.end_ms ?? dur); const w = Math.max(2, x1 - x0 - 1);
+        const col = nodeColor(e.node || e.name); const txt = e.kind === 'llm' ? (e.model || e.name).replace(/^.*\//, '') : e.name;
+        svg += `<g class="span" data-id="${e.id}"><rect x="${x0}" y="${y + 4}" width="${w}" height="${TL.laneH - 8}" rx="4" fill="${col}" ${e.status === 'error' ? 'stroke="var(--bad)" stroke-width="2"' : ''}/>` +
+               (w > 34 ? `<text x="${x0 + 5}" y="${y + 17}">${esc(short(txt, Math.floor(w / 6.5)))}</text>` : '') + `</g>`;
+      }
+    } else if (label === 'State') {
+      for (const s of S.run.snaps) svg += `<g class="marker" data-snap="${s.at_ms}"><path d="M${x(s.at_ms)} ${y + 5} l6 8 l-6 8 l-6 -8 z" fill="var(--s4)"/></g>`;
+    } else {
+      const cps = S.log.checkpoints || []; const steps = new Map(S.run.nodeEvents.map(e => [e.step, e]));
+      cps.forEach((c, i) => {
+        // the checkpoint of step N is written after the node of step N; step -1/0 — at start
+        const ref = steps.get(c.step); const ms = ref ? (ref.end_ms ?? ref.start_ms) : 0;
+        svg += `<g class="marker" data-cp="${i}"><circle cx="${x(ms)}" cy="${y + 13}" r="5" fill="var(--s7)"/></g>`;
+      });
+      if (!cps.length) svg += `<text class="lane-label" x="${TL.left + 4}" y="${y + 17}" style="text-transform:none">none — graph without a checkpointer</text>`;
+    }
+  });
+  svg += `<line class="playhead" id="playhead" x1="${TL.left}" y1="${TL.top - 6}" x2="${TL.left}" y2="${H - 4}"/>`;
+  svg += '</svg>';
+  host.innerHTML = svg; host._x = x; host._H = H;
+  const svgEl = host.querySelector('svg');
+  svgEl.addEventListener('click', (ev) => {
+    const span = ev.target.closest('.span'); const marker = ev.target.closest('.marker');
+    if (span) { seekToEvent(S.run.byId.get(span.dataset.id)); return; }
+    if (marker?.dataset.snap != null) { S.selected = null; setT(+marker.dataset.snap); showTab('state'); return; }
+    if (marker?.dataset.cp != null) { showTab('checkpoints'); const c = S.log.checkpoints[+marker.dataset.cp]; const ref = S.run.nodeEvents.find(e => e.step === c.step); S.selected = null; setT(ref ? (ref.end_ms ?? ref.start_ms) : 0); return; }
+    const pt = svgEl.createSVGPoint(); pt.x = ev.clientX; pt.y = ev.clientY; const p = pt.matrixTransform(svgEl.getScreenCTM().inverse());
+    if (p.x >= TL.left) { S.selected = null; setT((p.x - TL.left) / (W - TL.left - TL.right) * dur); }
+  });
+  svgEl.addEventListener('mousemove', (ev) => {
+    const span = ev.target.closest('.span'); const marker = ev.target.closest('.marker'); const tip = $('tooltip');
+    let text = '';
+    if (span) { const e = S.run.byId.get(span.dataset.id); text = `${kindLabel(e)} ${e.name}${e.model ? '\n' + e.model : ''}\n${fmtMs(e.start_ms)} → ${fmtMs(e.end_ms ?? dur)} · ${fmtDur((e.end_ms ?? dur) - e.start_ms)}` + (e.usage?.input_tokens != null ? `\n${fmtInt(e.usage.input_tokens)} → ${fmtInt(e.usage.output_tokens)} tok · ${fmtUsd(e.cost_usd)}` : '') + (e.status === 'error' ? `\nERROR: ${e.error}` : ''); }
+    else if (marker?.dataset.snap != null) { const s = S.run.snaps.find(s => s.at_ms == marker.dataset.snap); text = `state: ${s.label}\nchanged: ${s.changed.join(', ') || '—'}`; }
+    else if (marker?.dataset.cp != null) { const c = S.log.checkpoints[+marker.dataset.cp]; text = `checkpoint step ${c.step} (${c.source})\nid ${c.checkpoint_id}\nnext: ${c.next.join(', ') || '—'}\nchanged: ${c.changed_keys.join(', ')}`; }
+    if (text) { tip.textContent = text; tip.style.display = 'block'; tip.style.left = (ev.clientX + 14) + 'px'; tip.style.top = (ev.clientY + 14) + 'px'; } else tip.style.display = 'none';
+  });
+  svgEl.addEventListener('mouseleave', () => $('tooltip').style.display = 'none');
+}
+function updatePlayhead() {
+  const host = $('timeline'); if (!host._x) return; const px = host._x(S.t);
+  const ph = $('playhead'); if (ph) { ph.setAttribute('x1', px); ph.setAttribute('x2', px); }
+  const cur = eventAt(S.t);
+  host.querySelectorAll('.span').forEach(el => { const e = S.run.byId.get(el.dataset.id); el.classList.toggle('active', cur && (e.id === cur.id || e.id === cur.parent)); el.classList.toggle('dim', e.start_ms > S.t); });
+}
+
+/* =====================================================================
+   Graph diagram: layers from __start__, edges, the active node and the traversed edge
+   ===================================================================== */
+function renderGraph() {
+  const g = S.log.graph; const host = $('paneGraph');
+  if (!g) { host.innerHTML = '<div class="empty">The log has no graph diagram</div>'; return; }
+  const ids = g.nodes.map(n => n.id); const edges = g.edges;
+  // layers: BFS from __start__ along forward edges; an edge into an already visited layer is treated as a back edge (loop)
+  const layer = {}; ids.forEach(id => layer[id] = null); layer['__start__'] = 0;
+  let changed = true, guard = 0;
+  while (changed && guard++ < 50) { changed = false; for (const e of edges) { if (layer[e.source] == null) continue; const cand = layer[e.source] + 1; if (layer[e.target] == null || (layer[e.target] < cand && !isBack(e))) { if (layer[e.target] !== cand) { layer[e.target] = cand; changed = true; } } } }
+  function isBack(e) { return layer[e.target] != null && layer[e.target] <= layer[e.source]; }
+  ids.forEach(id => { if (layer[id] == null) layer[id] = Math.max(...Object.values(layer).filter(v => v != null)) + 1; });
+  const cols = {}; ids.forEach(id => (cols[layer[id]] ||= []).push(id));
+  const NW = 150, NH = 40, GX = 90, GY = 64; const nLayers = Object.keys(cols).length;
+  const maxRows = Math.max(...Object.values(cols).map(c => c.length));
+  const W = 40 + nLayers * (NW + GX), H = 40 + maxRows * (NH + GY);
+  const pos = {}; Object.entries(cols).forEach(([l, list]) => list.forEach((id, i) => { pos[id] = { x: 20 + l * (NW + GX), y: 20 + i * (NH + GY) + ((maxRows - list.length) * (NH + GY)) / 2 }; }));
+  let svg = `<svg viewBox="0 0 ${W} ${H}" style="max-height:${Math.max(260, H * 1.6)}px"><defs><marker id="arr" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--line-strong)"/></marker><marker id="arrT" viewBox="0 0 10 10" refX="9" refY="5" markerWidth="8" markerHeight="8" orient="auto-start-reverse"><path d="M0 0 L10 5 L0 10 z" fill="var(--accent)"/></marker></defs>`;
+  edges.forEach((e, i) => {
+    const a = pos[e.source], b = pos[e.target]; if (!a || !b) return;
+    const back = layer[e.target] <= layer[e.source];
+    let d;
+    if (back) { const x0 = a.x + NW / 2, y0 = a.y + NH, x1 = b.x + NW / 2, y1 = b.y + NH; const dy = 40 + 10 * i; d = `M${x0} ${y0} C ${x0} ${y0 + dy}, ${x1} ${y1 + dy}, ${x1} ${y1 + 2}`; }
+    else { const x0 = a.x + NW, y0 = a.y + NH / 2, x1 = b.x, y1 = b.y + NH / 2; d = `M${x0} ${y0} C ${x0 + GX / 2} ${y0}, ${x1 - GX / 2} ${y1}, ${x1 - 2} ${y1}`; }
+    svg += `<path class="edge ${e.conditional ? 'conditional' : ''}" data-edge="${e.source}→${e.target}" d="${d}" marker-end="url(#arr)"/>`;
+    if (e.conditional) { const mx = back ? (a.x + b.x + NW) / 2 : (a.x + NW + b.x) / 2, my = back ? Math.max(a.y, b.y) + NH + 36 + 10 * i : (a.y + b.y + NH) / 2 - 6; svg += `<text class="edge-label" x="${mx}" y="${my}" text-anchor="middle">condition</text>`; }
+  });
+  ids.forEach(id => { const p = pos[id]; const term = id.startsWith('__'); const col = term ? 'var(--line-strong)' : nodeColor(id);
+    svg += `<g class="node ${term ? 'terminal' : ''}" data-node="${id}"><rect x="${p.x}" y="${p.y}" width="${NW}" height="${NH}" style="stroke:${col}"/><rect x="${p.x}" y="${p.y}" width="6" height="${NH}" rx="3" fill="${col}"/><text x="${p.x + 16}" y="${p.y + 25}">${esc(id.replace(/^__|__$/g, ''))}</text><text class="badge" data-badge="${id}" x="${p.x + NW - 8}" y="${p.y + 25}" text-anchor="end"></text></g>`; });
+  svg += '</svg>';
+  host.innerHTML = `<div class="muted" style="margin-bottom:6px">Solid edges are unconditional, dashed ones are conditional (a router picks the branch). The active node is highlighted; the counter shows how many times the node has already run by the current moment.</div>${svg}`;
+}
+function updateGraphActive() {
+  const host = $('paneGraph'); const cur = nodeAt(S.t); const prev = lastNodeBefore(S.t);
+  host.querySelectorAll('.node').forEach(el => { const id = el.dataset.node; el.classList.toggle('active', !!cur && cur.name === id); el.classList.toggle('done', !cur && !!prev && prev.name === id); });
+  host.querySelectorAll('.node rect:first-child').forEach(r => { const id = r.parentElement.dataset.node; r.style.fill = (cur && cur.name === id) ? 'var(--accent-bg)' : ''; });
+  // traversed edge: from the previous node to the current one (or to __end__ after the last one)
+  const from = cur ? lastNodeBefore(cur.start_ms) : prev; const to = cur ? cur.name : (S.t >= S.run.duration ? '__end__' : null);
+  host.querySelectorAll('.edge').forEach(e => e.classList.remove('taken'));
+  const key = `${from ? from.name : '__start__'}→${to}`; const el = host.querySelector(`[data-edge="${CSS.escape(key)}"]`); if (el) { el.classList.add('taken'); el.setAttribute('marker-end', 'url(#arrT)'); }
+  host.querySelectorAll('.edge:not(.taken)').forEach(e => e.setAttribute('marker-end', 'url(#arr)'));
+  host.querySelectorAll('[data-badge]').forEach(b => { const n = S.run.nodeEvents.filter(e => e.name === b.dataset.badge && (e.end_ms ?? e.start_ms) <= S.t).length; b.textContent = n ? `×${n}` : ''; });
+}
+
+/* =====================================================================
+   State at the current moment
+   ===================================================================== */
+function renderState() {
+  const host = $('paneState'); const snap = snapAt(S.t);
+  if (!snap) { host.innerHTML = '<div class="empty">No state snapshots</div>'; return; }
+  const open = new Set([...host.querySelectorAll('.state-row.open')].map(r => r.dataset.key));
+  const keys = Object.keys(snap.state).filter(k => !S.stateOnlyChanged || snap.changed.includes(k));
+  host.innerHTML = `<div class="state-tools"><b>${esc(snap.label)}</b><span class="muted">at ${fmtMs(snap.at_ms)} · changed: ${snap.changed.length ? snap.changed.map(k => `<code>${esc(k)}</code>`).join(' ') : '—'}</span>
+    <label><input type="checkbox" id="onlyChanged" ${S.stateOnlyChanged ? 'checked' : ''}> changed only</label></div>
+    <div class="state-list">${keys.map(k => `<div class="state-row ${snap.changed.includes(k) ? 'changed' : ''} ${open.has(k) ? 'open' : ''}" data-key="${esc(k)}"><div class="key">${esc(k)} <span class="muted" style="font-weight:400">${typeName(snap.state[k])}</span></div><div class="val">${esc(fmtVal(snap.state[k], open.has(k)))}</div></div>`).join('')}</div>`;
+  $('onlyChanged').onchange = (e) => { S.stateOnlyChanged = e.target.checked; renderState(); };
+  host.querySelectorAll('.state-row .key').forEach(el => el.onclick = () => { const row = el.parentElement; row.classList.toggle('open'); row.querySelector('.val').textContent = fmtVal(snap.state[row.dataset.key], row.classList.contains('open')); });
+}
+function typeName(v) { if (v == null) return 'null'; if (Array.isArray(v)) return `list[${v.length}]`; if (typeof v === 'object') return `dict{${Object.keys(v).length}}`; if (typeof v === 'string') return `str ${v.length}`; return typeof v; }
+function fmtVal(v, full) { if (typeof v === 'string') return full ? v : short(v, 240); const s = JSON.stringify(v, null, full ? 1 : 0); return full ? s : short(s, 240); }
+
+/* =====================================================================
+   Checkpoints and events
+   ===================================================================== */
+function renderCheckpoints() {
+  const cps = S.log.checkpoints || []; const host = $('paneCheckpoints');
+  if (!cps.length) { host.innerHTML = `<div class="empty">No checkpoints.${S.log.meta?.note ? ' ' + esc(S.log.meta.note) + '.' : ''}<br><span class="muted">A checkpoint = a state snapshot after each step, stored by the checkpointer (SqliteSaver/Postgres). A run can be resumed from any step using it.</span></div>`; return; }
+  host.innerHTML = `<div class="muted" style="margin-bottom:6px">Thread <code>${esc(S.log.thread_id || '')}</code> · ${cps.length} checkpoints. Step −1 is the input, 0 is the start, then one for each node that has run. <code>next</code> — which nodes will run from this checkpoint on resume.</div>
+  <table><thead><tr><th>step</th><th>source</th><th>checkpoint_id</th><th>parent</th><th>next</th><th>changed keys</th><th>created</th></tr></thead><tbody>
+  ${cps.map((c, i) => `<tr class="clickable" data-cp="${i}"><td class="num">${c.step}</td><td>${esc(c.source)}</td><td class="mono">${esc(String(c.checkpoint_id).slice(-12))}</td><td class="mono">${esc(String(c.parent_checkpoint_id || '').slice(-12))}</td><td>${esc(c.next.join(', ') || '—')}</td><td>${(c.changed_keys || []).map(k => `<code>${esc(k)}</code>`).join(' ')}</td><td class="mono">${esc(String(c.created_at).slice(11, 23))}</td></tr>`).join('')}</tbody></table>`;
+  host.querySelectorAll('tr.clickable').forEach(tr => tr.onclick = () => { const c = cps[+tr.dataset.cp]; const ref = S.run.nodeEvents.find(e => e.step === c.step); S.selected = null; setT(ref ? (ref.end_ms ?? ref.start_ms) : 0); });
+}
+function updateCheckpointActive() {
+  const cps = S.log.checkpoints || []; if (!cps.length) return; const prev = lastNodeBefore(S.t); const step = prev ? prev.step : (S.t > 0 ? 0 : -1);
+  $('paneCheckpoints').querySelectorAll('tr[data-cp]').forEach(tr => tr.classList.toggle('active', cps[+tr.dataset.cp].step === step));
+}
+function renderEvents() {
+  const evs = S.log.events.filter(e => e.kind !== 'internal' || e.output);
+  $('paneEvents').innerHTML = `<table><thead><tr><th>start</th><th>dur.</th><th>type</th><th>name</th><th>node / step</th><th>model</th><th class="num">in</th><th class="num">out</th><th class="num">cache</th><th class="num">$</th><th>status</th></tr></thead><tbody>
+  ${evs.map(e => `<tr class="clickable" data-id="${e.id}"><td class="mono">${fmtMs(e.start_ms)}</td><td class="mono">${fmtDur(e.end_ms != null ? e.end_ms - e.start_ms : null)}</td><td>${esc(kindLabel(e))}</td><td>${'&nbsp;'.repeat(e.depth * 2)}${esc(e.name)}${e.kind === 'internal' ? ` → <b>${esc(e.output)}</b>` : ''}</td><td>${esc(e.node || '')}${e.step != null ? ' / ' + e.step : ''}</td><td class="mono">${esc((e.model || '').replace(/^.*\//, ''))}</td><td class="num">${fmtInt(e.usage?.input_tokens)}</td><td class="num">${fmtInt(e.usage?.output_tokens)}</td><td class="num">${fmtInt(e.usage?.cache_read)}</td><td class="num">${e.cost_usd != null ? fmtUsd(e.cost_usd) : '—'}</td><td>${e.status === 'error' ? '<span style="color:var(--bad)">error</span>' : esc(e.status)}</td></tr>`).join('')}</tbody></table>`;
+  $('paneEvents').querySelectorAll('tr.clickable').forEach(tr => tr.onclick = () => seekToEvent(S.run.byId.get(tr.dataset.id)));
+}
+function updateEventsActive(ev) { $('paneEvents').querySelectorAll('tr[data-id]').forEach(tr => tr.classList.toggle('active', !!ev && tr.dataset.id === ev.id)); }
+
+/* =====================================================================
+   Right panel: totals, breakdown, details of the current event
+   ===================================================================== */
+function renderSide() {
+  const t = S.log.totals; const cacheShare = t.input_tokens ? Math.round(100 * (t.cache_read || 0) / t.input_tokens) : 0;
+  const byNode = {}; for (const e of S.run.llmEvents) { const k = e.node || e.name; const b = byNode[k] ||= { calls: 0, in: 0, out: 0, cache: 0, cost: 0, ms: 0, models: new Set() }; b.calls++; b.in += e.usage?.input_tokens || 0; b.out += e.usage?.output_tokens || 0; b.cache += e.usage?.cache_read || 0; b.cost += e.cost_usd || 0; b.ms += (e.end_ms ?? 0) - e.start_ms; if (e.model) b.models.add(e.model.replace(/^.*\//, '')); }
+  $('side').innerHTML = `
+  <div class="card"><h3>Run cost</h3><div class="hero">${fmtUsd(t.cost_usd)}</div>
+    <div class="kv"><span class="k">model calls</span><span class="v">${t.llm_calls}</span><span class="k">input tokens</span><span class="v">${fmtInt(t.input_tokens)}</span><span class="k">output tokens</span><span class="v">${fmtInt(t.output_tokens)}</span>
+    <span class="k">from cache (cache_read)</span><span class="v">${fmtInt(t.cache_read)} (${cacheShare}%)</span><span class="k">written to cache</span><span class="v">${fmtInt(t.cache_creation)}</span><span class="k">reasoning tokens</span><span class="v">${fmtInt(t.reasoning)}</span>
+    <span class="k">duration</span><span class="v">${fmtDur(t.duration_ms)}</span><span class="k">errors</span><span class="v">${t.errors}</span></div>
+    <div class="muted" style="margin-top:6px;font-size:11px">Cost comes from the provider responses (OpenRouter <code>usage.cost</code>); without the cache it would be the same if cache_read = 0.</div></div>
+  <div class="card"><h3>By node</h3><table><thead><tr><th>node</th><th class="num">calls</th><th class="num">in</th><th class="num">out</th><th class="num">$</th><th class="num">s</th></tr></thead><tbody>
+    ${Object.entries(byNode).map(([k, b]) => `<tr><td><span class="dot" style="background:${nodeColor(k)}"></span>${esc(k)}<div class="muted mono" style="font-size:10px">${esc([...b.models].join(', '))}</div></td><td class="num">${b.calls}</td><td class="num">${fmtInt(b.in)}</td><td class="num">${fmtInt(b.out)}</td><td class="num">${b.cost.toFixed(3)}</td><td class="num">${(b.ms / 1000).toFixed(1)}</td></tr>`).join('')}</tbody></table></div>
+  <div class="card" id="detailsCard"><h3>Current event</h3><div id="details" class="muted">—</div></div>
+  <div class="card"><h3>Run context</h3><div class="kv">${Object.entries(S.log.meta || {}).filter(([k]) => !['note'].includes(k)).map(([k, v]) => `<span class="k">${esc(k)}</span><span class="v" style="text-align:left;word-break:break-all">${esc(String(v))}</span>`).join('')}</div></div>`;
+}
+function renderDetails(ev) {
+  const host = $('details'); if (!host) return;
+  if (!ev) { host.innerHTML = '—'; return; }
+  let html = `<div class="kv"><span class="k">type</span><span class="v">${esc(kindLabel(ev))}</span><span class="k">name</span><span class="v">${esc(ev.name)}</span>`;
+  if (ev.node) html += `<span class="k">node</span><span class="v">${esc(ev.node)}</span>`; if (ev.step != null) html += `<span class="k">graph step</span><span class="v">${ev.step}</span>`;
+  html += `<span class="k">start → end</span><span class="v">${fmtMs(ev.start_ms)} → ${ev.end_ms != null ? fmtMs(ev.end_ms) : '…'}</span><span class="k">duration</span><span class="v">${fmtDur(ev.end_ms != null ? ev.end_ms - ev.start_ms : null)}</span>`;
+  if (ev.kind === 'llm') {
+    html += `<span class="k">model</span><span class="v">${esc(ev.model || '')}</span>`; if (ev.provider) html += `<span class="k">provider</span><span class="v">${esc(ev.provider)}</span>`;
+    for (const [k, v] of Object.entries(ev.params || {})) html += `<span class="k">${esc(k)}</span><span class="v">${esc(String(v))}</span>`;
+    if (ev.tools?.length) html += `<span class="k">tools</span><span class="v">${esc(ev.tools.join(', '))}</span>`;
+    const u = ev.usage || {}; html += `<span class="k">tokens in / out</span><span class="v">${fmtInt(u.input_tokens)} / ${fmtInt(u.output_tokens)}</span><span class="k">cache read / write</span><span class="v">${fmtInt(u.cache_read)} / ${fmtInt(u.cache_creation)}</span><span class="k">reasoning</span><span class="v">${fmtInt(u.reasoning)}</span><span class="k">cost</span><span class="v">${fmtUsd(ev.cost_usd)}</span>`;
+    if (ev.finish_reason) html += `<span class="k">finish</span><span class="v">${esc(ev.finish_reason)}</span>`; if (ev.generation_id) html += `<span class="k">generation</span><span class="v" style="font-size:10px">${esc(ev.generation_id)}</span>`;
+  }
+  html += '</div>';
+  if (ev.kind === 'llm') {
+    html += `<div style="margin-top:8px"><b>Messages (${(ev.messages || []).length})</b></div>` + (ev.messages || []).map((m, i) => `<details class="msg"><summary>${i + 1}. ${esc(m.role)} · ${fmtInt((m.content || '').length)} chars</summary><pre>${esc(typeof m.content === 'string' ? m.content : JSON.stringify(m.content, null, 1))}</pre></details>`).join('');
+    html += `<details class="msg" open><summary><b>Response</b> · ${fmtInt((ev.response?.content || '').length)} chars${ev.response?.tool_calls?.length ? ' · tool calls: ' + ev.response.tool_calls.map(t => t.name).join(', ') : ''}</summary><pre>${esc(ev.response?.content || '')}${ev.response?.tool_calls?.length ? '\n' + esc(JSON.stringify(ev.response.tool_calls, null, 1)) : ''}</pre></details>`;
+  } else if (ev.kind === 'node') {
+    html += `<div style="margin-top:8px"><b>State update</b></div>` + Object.entries(ev.output || {}).map(([k, v]) => `<details class="msg"><summary><code>${esc(k)}</code> · ${typeName(v)}</summary><pre>${esc(typeof v === 'string' ? v : JSON.stringify(v, null, 1))}</pre></details>`).join('');
+  } else if (ev.kind === 'tool') {
+    html += `<details class="msg" open><summary>input</summary><pre>${esc(JSON.stringify(ev.input, null, 1))}</pre></details><details class="msg" open><summary>output</summary><pre>${esc(typeof ev.output === 'string' ? ev.output : JSON.stringify(ev.output, null, 1))}</pre></details>`;
+  }
+  if (ev.error) html += `<div style="color:var(--bad);margin-top:6px">${esc(ev.error)}</div>`;
+  host.innerHTML = html;
+}
+
+/* =====================================================================
+   Tabs, controls, startup
+   ===================================================================== */
+function showTab(name) { S.tab = name; document.querySelectorAll('#tabs button').forEach(b => b.classList.toggle('on', b.dataset.pane === name)); ['graph', 'state', 'checkpoints', 'events', 'about'].forEach(p => $('pane' + p[0].toUpperCase() + p.slice(1)).classList.toggle('on', p === name)); }
+document.querySelectorAll('#tabs button').forEach(b => b.onclick = () => showTab(b.dataset.pane));
+$('btnPlay').onclick = () => S.playing ? stop() : play();
+$('btnPrev').onclick = () => stepEvent(-1); $('btnNext').onclick = () => stepEvent(1);
+$('speed').onchange = (e) => S.speed = +e.target.value;
+$('seek').oninput = (e) => { S.selected = null; setT(+e.target.value / 1000 * S.run.duration); };
+$('runSelect').onchange = (e) => loadRun(e.target.value).catch(showError);
+$('reloadBtn').onclick = () => loadIndex().catch(showError);
+window.addEventListener('keydown', (e) => { if (e.target.tagName === 'INPUT' || e.target.tagName === 'SELECT') return; if (e.code === 'Space') { e.preventDefault(); S.playing ? stop() : play(); } else if (e.key === 'ArrowLeft') { S.selected = null; setT(S.t - 2000); } else if (e.key === 'ArrowRight') { S.selected = null; setT(S.t + 2000); } else if (e.key === ',') stepEvent(-1); else if (e.key === '.') stepEvent(1); else if (e.key === 'Home') setT(0); else if (e.key === 'End') setT(S.run.duration); });
+window.addEventListener('resize', () => { if (S.log) { renderTimeline(); updatePlayhead(); } });
+function showError(err) { console.error(err); $('nowTitle').textContent = 'Load error'; $('nowSub').textContent = String(err); }
+loadIndex().catch(showError);
+</script>
+</body>
+</html>

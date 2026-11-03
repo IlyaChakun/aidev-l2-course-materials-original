@@ -1,0 +1,3 @@
+# Official MCP Python SDK. Line 2.x, checked on 2.0.0 (28.07.2026).
+# The `fastmcp` package is a different project: it is not needed here and should not be installed.
+mcp>=2.0.0,<3

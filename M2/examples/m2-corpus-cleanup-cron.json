@@ -1,0 +1,211 @@
+{
+  "name": "M2 · Nightly corpus reconciliation with the source",
+  "nodes": [
+    {
+      "parameters": {},
+      "type": "n8n-nodes-base.merge",
+      "typeVersion": 3,
+      "position": [
+        440,
+        160
+      ],
+      "id": "3c8eaa3f-456f-46f8-98a0-545a254a162d",
+      "name": "Merge"
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "tableId": "documents",
+        "returnAll": true
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        260,
+        260
+      ],
+      "id": "2fa6ec3c-8eef-45b1-9821-0514c3e0136d",
+      "name": "Supabase",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "YOUR_SUPABASE_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "jsCode": "// Grab the raw data from all inputs\nconst inputData = $input.all().map(item => item.json);\n\n// Separate out the Google Drive items (no \"metadata\") vs. Supabase items (have \"metadata\")\nconst googleDriveItems = inputData.filter(item => item.id && !item.metadata);\nconst supabaseItems = inputData.filter(item => item.metadata);\n\n// Extract just the file IDs from Google Drive\nconst googleDriveIds = googleDriveItems.map(item => item.id);\n\n// Build a Set for quick membership checks (recommended for large arrays)\nconst driveIdSet = new Set(googleDriveIds);\n\n// Filter Supabase rows to find those whose file_id is not in the Drive set\nconst orphanedSupabaseRows = supabaseItems.filter(item => {\n  return !driveIdSet.has(item.metadata.file_id);\n});\n\n// Return each orphaned row as a separate n8n item\nreturn orphanedSupabaseRows.map(row => ({ json: row }));\n"
+      },
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        580,
+        160
+      ],
+      "id": "51d44b4b-d56e-4e30-a4ed-c5dc23716714",
+      "name": "Code1"
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {}
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        80,
+        160
+      ],
+      "id": "93d31123-1ae0-477a-9af2-1b23dba6907f",
+      "name": "Schedule Trigger"
+    },
+    {
+      "parameters": {
+        "operation": "delete",
+        "tableId": "documents",
+        "matchType": "allFilters",
+        "filters": {
+          "conditions": [
+            {
+              "keyName": "id",
+              "condition": "eq",
+              "keyValue": "={{ $json.id }}"
+            }
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.supabase",
+      "typeVersion": 1,
+      "position": [
+        720,
+        160
+      ],
+      "id": "40f75444-6b2c-4229-86c4-2c68f9d49c5f",
+      "name": "Delete Rows",
+      "credentials": {
+        "supabaseApi": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "YOUR_SUPABASE_CREDENTIAL"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "content": "## Reconciling the corpus with the source\n\nOnce a day on a schedule: the list of files in the Google Drive folder against the list of documents\nin the database. Everything that is no longer in the folder is deleted from the database.\n\n### Why\n\nNo file trigger reports a deletion. Without such a reconciliation, deleted documents\nstay in the index and keep showing up in answers - and that is the worst kind of error, because\nthe answer looks well-founded.\n\n### What to replace before running\n\nGoogle Drive and Supabase credentials, `YOUR_FOLDER_ID` in the folder request, the table name `documents`.\n\n### What it costs\n\nA discrepancy is visible once a day. If you want it faster - a more frequent schedule and more idle runs.",
+        "height": 420,
+        "width": 920,
+        "color": 3
+      },
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "id": "195eabda-46b1-47f8-acf2-57f4f5544260",
+      "name": "Sticky Note5"
+    },
+    {
+      "parameters": {
+        "resource": "fileFolder",
+        "searchMethod": "query",
+        "queryString": "'YOUR_FOLDER_ID' in parents and trashed=false",
+        "returnAll": true,
+        "filter": {},
+        "options": {
+          "fields": [
+            "id"
+          ]
+        }
+      },
+      "type": "n8n-nodes-base.googleDrive",
+      "typeVersion": 3,
+      "position": [
+        260,
+        60
+      ],
+      "id": "c1a8d065-3632-49d8-b9cf-d3b5ac81521a",
+      "name": "Get File IDs1",
+      "credentials": {
+        "googleDriveOAuth2Api": {
+          "id": "YOUR_CREDENTIAL_ID",
+          "name": "YOUR_GOOGLE_DRIVE_CREDENTIAL"
+        }
+      }
+    }
+  ],
+  "pinData": {},
+  "connections": {
+    "Merge": {
+      "main": [
+        [
+          {
+            "node": "Code1",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Supabase": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 1
+          }
+        ]
+      ]
+    },
+    "Code1": {
+      "main": [
+        [
+          {
+            "node": "Delete Rows",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Schedule Trigger": {
+      "main": [
+        [
+          {
+            "node": "Get File IDs1",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Supabase",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get File IDs1": {
+      "main": [
+        [
+          {
+            "node": "Merge",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "active": false,
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  }
+}

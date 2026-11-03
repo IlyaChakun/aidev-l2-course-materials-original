@@ -1,0 +1,255 @@
+{
+ "name": "M3 Demo · Agent with all ports",
+ "nodes": [
+  {
+   "parameters": {
+    "content": "## The agent and its ports\n\nFour different kinds of input on one node:\n\n- **main** — data from the trigger\n- **ai_languageModel** — the brain\n- **ai_memory** — the dialogue history\n- **ai_tool** — the tools\n\nUnder the hood this is the LangChain AgentExecutor: n8n runs the \"model → tool choice → result → model\" loop for you.\n\n**About memory:** on this stand Simple Memory lives only within a single execution, and the next turn does not see it. That is why Postgres Chat Memory is used here — it keeps the history in the database and survives a restart. That is the difference between \"state in the process\" and \"state in external storage\".",
+    "height": 560,
+    "width": 700,
+    "color": 4
+   },
+   "id": "d1381d93-848a-431e-a333-f6205026eeab",
+   "name": "Note Agent",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -464,
+    -256
+   ]
+  },
+  {
+   "parameters": {
+    "public": true,
+    "mode": "webhook",
+    "options": {
+     "responseMode": "lastNode"
+    }
+   },
+   "id": "726ea553-93ce-4d85-8e7c-4fba061425bf",
+   "name": "Сообщение в чате",
+   "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    -320,
+    0
+   ],
+   "webhookId": "7114e525-b100-48b1-9c7d-7b66f837d494"
+  },
+  {
+   "parameters": {
+    "options": {
+     "systemMessage": "Ты демо-агент занятия. Отвечай кратко, по-русски. Для любой арифметики, даже тривиальной, ВСЕГДА используй инструмент Calculator и отвечай по его результату. Никогда не считай в уме."
+    }
+   },
+   "id": "7ff73dfd-7583-4c92-9795-0e49c97d585b",
+   "name": "AI Agent",
+   "type": "@n8n/n8n-nodes-langchain.agent",
+   "typeVersion": 3,
+   "position": [
+    -64,
+    0
+   ]
+  },
+  {
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "value": "gpt-4.1-mini",
+     "mode": "list",
+     "cachedResultName": "gpt-4.1-mini"
+    },
+    "options": {}
+   },
+   "id": "02c344c4-4003-4490-a026-f04ce24a4f66",
+   "name": "OpenAI Chat Model",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    -224,
+    224
+   ]
+  },
+  {
+   "parameters": {
+    "sessionIdType": "customKey",
+    "sessionKey": "={{ 'm3-agent-' + $json.sessionId }}",
+    "contextWindowLength": 2,
+    "tableName": "n8n_chat_histories"
+   },
+   "id": "7eec828a-cddd-48ad-a622-11d51e5dbdef",
+   "name": "Postgres Chat Memory",
+   "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+   "typeVersion": 1.4,
+   "position": [
+    -64,
+    224
+   ]
+  },
+  {
+   "parameters": {},
+   "id": "15b97f60-aa7b-440d-bdc1-2cdfcf76894c",
+   "name": "Calculator",
+   "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+   "typeVersion": 1,
+   "position": [
+    112,
+    224
+   ]
+  },
+  {
+   "parameters": {
+    "content": "## Pre-built LLM nodes\n\nThe same `@n8n/n8n-nodes-langchain.*` family, but without the agent loop: one model call with a baked-in prompt.\n\n- **Text Classifier** — sorts the input into categories, each category has its own output\n- **Information Extractor** — pulls a structure out of the text according to a schema\n\nThe `ai_languageModel` port is the same. One model can feed several nodes at once.",
+    "height": 628,
+    "width": 700,
+    "color": 5
+   },
+   "id": "630b8f8f-4e66-4244-add8-fa0af706acb1",
+   "name": "Note Prebuilt",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -464,
+    560
+   ]
+  },
+  {
+   "parameters": {
+    "inputText": "={{ $json.chatInput }}",
+    "categories": {
+     "categories": [
+      {
+       "category": "вопрос",
+       "description": "Пользователь спрашивает что-то и ждёт ответа текстом"
+      },
+      {
+       "category": "команда",
+       "description": "Пользователь требует выполнить действие, а не рассказать"
+      }
+     ]
+    },
+    "options": {
+     "fallback": "other"
+    }
+   },
+   "id": "c79e5e13-c4d0-414a-89f3-73b43ec96438",
+   "name": "Text Classifier",
+   "type": "@n8n/n8n-nodes-langchain.textClassifier",
+   "typeVersion": 1,
+   "position": [
+    -448,
+    752
+   ]
+  },
+  {
+   "parameters": {
+    "text": "={{ $json.chatInput }}",
+    "attributes": {
+     "attributes": [
+      {
+       "name": "тема",
+       "description": "О чём сообщение, одним словом",
+       "required": true
+      },
+      {
+       "name": "срочность",
+       "description": "Одно из: низкая, средняя, высокая"
+      }
+     ]
+    },
+    "options": {}
+   },
+   "id": "04cbb14b-642d-4bb7-abe9-850220010f06",
+   "name": "Information Extractor",
+   "type": "@n8n/n8n-nodes-langchain.informationExtractor",
+   "typeVersion": 1.2,
+   "position": [
+    -64,
+    768
+   ]
+  },
+  {
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "value": "gpt-4.1-mini",
+     "mode": "list",
+     "cachedResultName": "gpt-4.1-mini"
+    },
+    "options": {}
+   },
+   "id": "659eeaff-5319-4b6f-b701-c81e99fdfdf8",
+   "name": "OpenAI Chat Model (pre-built)",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    -128,
+    1024
+   ]
+  }
+ ],
+ "connections": {
+  "Сообщение в чате": {
+   "main": [
+    [
+     {
+      "node": "AI Agent",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI Chat Model": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "AI Agent",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Calculator": {
+   "ai_tool": [
+    [
+     {
+      "node": "AI Agent",
+      "type": "ai_tool",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI Chat Model (pre-built)": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Text Classifier",
+      "type": "ai_languageModel",
+      "index": 0
+     },
+     {
+      "node": "Information Extractor",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Postgres Chat Memory": {
+   "ai_memory": [
+    [
+     {
+      "node": "AI Agent",
+      "type": "ai_memory",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ }
+}

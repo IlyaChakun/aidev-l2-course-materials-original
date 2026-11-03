@@ -1,0 +1,566 @@
+{
+ "name": "M3 Demo · LangChain Code",
+ "nodes": [
+  {
+   "parameters": {
+    "content": "## Switching between the examples\n\nThere is one chat node. The active example is the one the connection from \"Сообщение в чате\" (the chat trigger) goes to.\n\nDrag the connection onto the code node of the example you need:\n1. A mini-loop with a calculator\n2. A research agent (plan → tools → synthesis)\n3. An orchestrator (3 workers in parallel + a synthesizer)",
+    "height": 280,
+    "width": 340,
+    "color": 5
+   },
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -820,
+    -60
+   ],
+   "id": "9449f438-0ac3-4775-a4cd-e2f780d31913",
+   "name": "Note · переключение"
+  },
+  {
+   "parameters": {
+    "content": "## LangChain Code: an agent taken apart\n\nThe same four ports as the AI Agent node, only we write the loop by hand:\n\n1. `getInputConnectionData('ai_languageModel', 0)` — the model\n2. `getInputConnectionData('ai_memory', 0)` — memory, we read and write it ourselves\n3. `getInputConnectionData('ai_tool', 0)` — the tools\n\nThe tool call is left as a TODO — that is exactly the part AgentExecutor does for you.\n\n**The node is available only on self-hosted**, it is not in the cloud.\n\n**About memory:** on this stand Simple Memory lives only within a single execution, and the next turn does not see it. That is why Postgres Chat Memory is used here — it keeps the history in the database and survives a restart. That is the difference between \"state in the process\" and \"state in external storage\".",
+    "height": 680,
+    "width": 848,
+    "color": 3
+   },
+   "id": "865f15ff-f315-45bd-8030-a83108479a07",
+   "name": "Note · пример 1",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -464,
+    -288
+   ]
+  },
+  {
+   "parameters": {
+    "public": true,
+    "mode": "webhook",
+    "options": {
+     "responseMode": "lastNode"
+    }
+   },
+   "id": "4b77742c-e2b3-4271-a481-2e0d9dfdb05e",
+   "name": "Сообщение в чате",
+   "type": "@n8n/n8n-nodes-langchain.chatTrigger",
+   "typeVersion": 1.1,
+   "position": [
+    -320,
+    32
+   ],
+   "webhookId": "ac185ea1-7072-4a45-8b7a-cf0399d45582"
+  },
+  {
+   "parameters": {
+    "code": {
+     "execute": {
+      "code": "/**\n * M3 · A mini agent loop by hand: memory + tools + model + observability.\n * The ports are declared below in Inputs/Outputs: main + ai_languageModel + ai_memory + ai_tool -> main\n */\n\nconst SYSTEM_PROMPT = 'Ты демо-агент занятия. Отвечай кратко, по-русски. Для ЛЮБОЙ арифметики всегда вызывай инструмент calculator - не считай сам.';\nconst MAX_ITERATIONS = 5;\n\n// Observability: the Langfuse address and the project keys (Basic = base64 of \"pk:sk\").\n// The node sandbox has no SDK of its own - we send the events to the ingestion API directly.\nconst LANGFUSE_HOST = 'https://your-langfuse.example.com';\nconst LANGFUSE_BASIC = '__LANGFUSE_BASIC__'; // replace with your own keys when publishing the code externally\n\n// Connected nodes are obtained through the ports, not from $json.\nconst model = await this.getInputConnectionData('ai_languageModel', 0);\nconst memory = await this.getInputConnectionData('ai_memory', 0);\nconst rawTools = await this.getInputConnectionData('ai_tool', 0);\nconst tools = Array.isArray(rawTools) ? rawTools : (rawTools ? [rawTools] : []);\n\n// Take ToolMessage from langchain if modules are allowed; otherwise a plain object with a role.\nlet ToolMessageCtor = null;\ntry {\n  ToolMessageCtor = require('@langchain/core/messages').ToolMessage;\n} catch (e) {\n  ToolMessageCtor = null;\n}\n\n// A simple uuid for trace events - crypto may be unavailable in the sandbox.\nconst uid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {\n  const r = (Math.random() * 16) | 0;\n  return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);\n});\n\n// A message snapshot for the trace: role + content, without the internals of LangChain classes.\nconst asPlain = (m) => ({\n  role: m.role ?? (m._getType ? m._getType() : 'unknown'),\n  content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),\n  ...(Array.isArray(m.tool_calls) && m.tool_calls.length > 0\n    ? { tool_calls: m.tool_calls.map((c) => ({ name: c.name, args: c.args })) }\n    : {}),\n});\n\nconst items = typeof $input.all === 'function' ? $input.all() : [$input.item];\nconst results = [];\n\nfor (const item of items) {\n  const question = item.json.chatInput ?? item.json.text ?? '';\n  const chatSessionId = item.json.sessionId ?? 'no-session';\n  const traceStartedAt = new Date().toISOString();\n\n  // 1. MEMORY: read the history and mix it into the prompt as an array of messages.\n  let history = [];\n  if (memory) {\n    const mem = await memory.loadMemoryVariables({});\n    const stored = mem?.chat_history ?? mem?.[memory.memoryKey];\n    if (Array.isArray(stored)) history = stored;\n  }\n\n  const messages = [\n    { role: 'system', content: SYSTEM_PROMPT },\n    ...history,\n    { role: 'user', content: question },\n  ];\n\n  // 2. TOOLS: bind them to the model and run the call loop.\n  const modelWithTools = tools.length > 0 ? model.bindTools(tools) : model;\n  const trace = [];\n  const llmCalls = []; // for the trace: each model call with timings\n  let iterations = 0;\n\n  const callModel = async () => {\n    const startTime = new Date().toISOString();\n    const inputSnapshot = messages.map(asPlain);\n    const resp = await modelWithTools.invoke(messages);\n    llmCalls.push({\n      startTime,\n      endTime: new Date().toISOString(),\n      input: inputSnapshot,\n      output: asPlain(resp),\n      usage: resp?.usage_metadata ?? resp?.response_metadata?.tokenUsage ?? null,\n    });\n    return resp;\n  };\n\n  let response = await callModel();\n\n  while (\n    Array.isArray(response.tool_calls) &&\n    response.tool_calls.length > 0 &&\n    iterations < MAX_ITERATIONS\n  ) {\n    iterations += 1;\n    messages.push(response);\n\n    for (const call of response.tool_calls) {\n      const tool = tools.find((t) => t && t.name === call.name);\n      const toolStartedAt = new Date().toISOString();\n      let observation;\n      if (!tool) {\n        observation = 'Tool ' + call.name + ' is not connected to the node';\n      } else {\n        observation = await tool.invoke(call.args);\n      }\n      const text = typeof observation === 'string' ? observation : JSON.stringify(observation);\n      trace.push({ tool: call.name, args: call.args, result: text, startTime: toolStartedAt, endTime: new Date().toISOString() });\n\n      messages.push(\n        ToolMessageCtor\n          ? new ToolMessageCtor({ content: text, tool_call_id: call.id, name: call.name })\n          : { role: 'tool', content: text, tool_call_id: call.id, name: call.name },\n      );\n    }\n\n    response = await callModel();\n  }\n\n  const finalText = typeof response === 'string'\n    ? response\n    : (response?.content ?? response?.text ?? String(response));\n\n  // 3. MEMORY: append the dialogue turn, otherwise the next turn remembers nothing.\n  if (memory) {\n    await memory.saveContext({ input: question }, { output: finalText });\n  }\n\n  // 4. OBSERVABILITY: assemble the run's trace and send it to Langfuse in one batch.\n  // Trace - the whole run; generation - each model call; span - each tool call.\n  // In code you assemble the trace yourself - this is the difference from the AI Agent node, where everything is hidden.\n  let langfuseStatus = 'off';\n  if (LANGFUSE_BASIC && !LANGFUSE_BASIC.startsWith('__')) {\n    const traceId = uid();\n    const now = () => new Date().toISOString();\n    const batch = [\n      {\n        id: uid(), type: 'trace-create', timestamp: now(),\n        body: {\n          id: traceId, timestamp: traceStartedAt,\n          name: 'm3-langchain-code-agent',\n          sessionId: chatSessionId,\n          input: question, output: finalText,\n          metadata: { iterations, history_len: history.length, node: 'LangChain Code' },\n        },\n      },\n      ...llmCalls.map((c, i) => ({\n        id: uid(), type: 'generation-create', timestamp: now(),\n        body: {\n          id: uid(), traceId, name: 'llm-call-' + (i + 1),\n          model: 'gpt-4.1-mini',\n          startTime: c.startTime, endTime: c.endTime,\n          input: c.input, output: c.output,\n          ...(c.usage ? { usage: { input: c.usage.input_tokens ?? c.usage.promptTokens, output: c.usage.output_tokens ?? c.usage.completionTokens } } : {}),\n        },\n      })),\n      ...trace.map((t) => ({\n        id: uid(), type: 'span-create', timestamp: now(),\n        body: {\n          id: uid(), traceId, name: 'tool:' + t.tool,\n          startTime: t.startTime, endTime: t.endTime,\n          input: t.args, output: t.result,\n        },\n      })),\n    ];\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST',\n        url: LANGFUSE_HOST + '/api/public/ingestion',\n        headers: { Authorization: 'Basic ' + LANGFUSE_BASIC, 'Content-Type': 'application/json' },\n        body: { batch },\n        json: true,\n      });\n      langfuseStatus = 'sent';\n    } catch (e) {\n      langfuseStatus = 'error: ' + String(e.message).slice(0, 120);\n    }\n  }\n\n  results.push({\n    json: {\n      output: finalText,\n      question,\n      history_len: history.length,\n      iterations,\n      tool_calls: trace,\n      tools_available: tools.map((t) => t && t.name).filter(Boolean),\n      langfuse: langfuseStatus,\n    },\n  });\n}\n\nreturn results;\n"
+     }
+    },
+    "inputs": {
+     "input": [
+      {
+       "type": "main",
+       "required": true
+      },
+      {
+       "type": "ai_languageModel",
+       "maxConnections": 1,
+       "required": true
+      },
+      {
+       "type": "ai_memory",
+       "maxConnections": 1
+      },
+      {
+       "type": "ai_tool"
+      }
+     ]
+    },
+    "outputs": {
+     "output": [
+      {
+       "type": "main"
+      }
+     ]
+    }
+   },
+   "id": "88cccfe8-95f3-4fe7-b22b-167b8f7601a1",
+   "name": "Пример 1 · Мини-цикл (LangChain Code)",
+   "type": "@n8n/n8n-nodes-langchain.code",
+   "typeVersion": 1,
+   "position": [
+    -64,
+    32
+   ]
+  },
+  {
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "value": "gpt-4.1-mini",
+     "mode": "list",
+     "cachedResultName": "gpt-4.1-mini"
+    },
+    "options": {}
+   },
+   "id": "9f3bfce8-ebc1-46b2-b1e3-31ad17280b87",
+   "name": "OpenAI · пример 1",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    -224,
+    272
+   ]
+  },
+  {
+   "parameters": {
+    "sessionIdType": "customKey",
+    "sessionKey": "={{ 'm3-code-' + $json.sessionId }}",
+    "contextWindowLength": 2
+   },
+   "id": "a8e1c178-c427-440e-b04f-c9702516dcca",
+   "name": "Память · пример 1",
+   "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+   "typeVersion": 1.4,
+   "position": [
+    -64,
+    272
+   ]
+  },
+  {
+   "parameters": {},
+   "id": "02b2a3ad-408c-4229-a55e-04467b0e89b0",
+   "name": "Calculator · пример 1",
+   "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+   "typeVersion": 1,
+   "position": [
+    112,
+    272
+   ]
+  },
+  {
+   "id": "eefd0aef-2261-4bfb-a8c3-eab05523957e",
+   "name": "Note · пример 2",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -360,
+    460
+   ],
+   "parameters": {
+    "content": "## Demo 2 · A multi-step research agent\n\nThe agent first builds a research plan, then goes through it step by step, and only then synthesizes an answer.\n\n1. The planner decides whether external sources are needed and cuts the question into sub-queries\n2. The step loop: the model asks for wikipedia_search and Calculator, the code executes the calls and puts the result back\n3. The synthesis collects the findings into an answer, memory is appended to, the trace goes to Langfuse\n\nStop conditions: at most 5 plan steps and 3 tool iterations per step.",
+    "height": 420,
+    "width": 620,
+    "color": 5
+   }
+  },
+  {
+   "id": "3b9eeb44-af8c-4ff6-95e2-73349bc6f269",
+   "name": "Пример 2 · Research-агент (LangChain Code)",
+   "type": "@n8n/n8n-nodes-langchain.code",
+   "typeVersion": 1,
+   "position": [
+    0,
+    920
+   ],
+   "parameters": {
+    "code": {
+     "execute": {
+      "code": "/**\n * M3 · Demo 2: a multi-step research agent on the LangChain Code node.\n *\n * How it differs from demo 1. There was a single \"model -> tool -> model\" loop,\n * and the model decided on the next step every time. Here the agent first\n * builds a research plan, then goes through that plan step by step, and only at the end\n * synthesizes an answer. The plan, the steps and the synthesis are written by hand, so each of them\n * is visible in the node's output and each can be stopped by its own condition.\n *\n * The ports are declared in the node's Inputs/Outputs:\n * main + ai_languageModel + ai_memory + ai_tool -> main.\n */\n\n// ─── BLOCK 0. Loop settings and stop conditions ────────────────────────────────\n// This part handles the stop conditions: without them an agent with tools\n// goes into an infinite loop on the very first failed call.\nconst MAX_STEPS = 5;            // the maximum number of research plan steps we execute\nconst MAX_TOOL_ITERATIONS = 3;  // how many \"model -> tools\" iterations are allowed within one step\nconst MAX_PLAN_QUERIES = 4;     // this many sub-queries we ask the planner for\nconst MODEL_NAME = 'gpt-4.1-mini';\n\n// Observability: the Langfuse address and the project keys (Basic = base64 of \"pk:sk\").\n// The node sandbox has no SDK of its own - we send the events to the ingestion API directly.\nconst LANGFUSE_HOST = 'https://your-langfuse.example.com';\nconst LANGFUSE_BASIC = '__LANGFUSE_BASIC__'; // replace with your own keys when publishing the code externally\n\n// ─── BLOCK 1. Ports: model, memory, tools ───────────────────────────────────\n// This part handles the connected nodes. They are not visible in $json: each\n// port has to be visited separately. The materials' author took the first element of the array\n// (llmArray[0]); on n8n 2.23 a port with maxConnections=1 returns the object directly -\n// so we handle both.\nconst pickOne = (v) => (Array.isArray(v) ? v[0] : v);\nconst model = pickOne(await this.getInputConnectionData('ai_languageModel', 0));\nconst memory = pickOne(await this.getInputConnectionData('ai_memory', 0));\nconst rawTools = await this.getInputConnectionData('ai_tool', 0);\nconst tools = Array.isArray(rawTools) ? rawTools : (rawTools ? [rawTools] : []);\n\n// LangChain modules may be unavailable in the sandbox - so no require at the top,\n// but a soft attempt. Without ToolMessage a plain object with role: 'tool' works,\n// without JsonOutputParser we parse the planner's answer by hand.\nconst tryRequire = (name) => { try { return require(name); } catch (e) { return null; } };\nconst coreMessages = tryRequire('@langchain/core/messages');\nconst coreParsers = tryRequire('@langchain/core/output_parsers');\nconst ToolMessageCtor = coreMessages ? coreMessages.ToolMessage : null;\nconst JsonOutputParserCtor = coreParsers ? coreParsers.JsonOutputParser : null;\n\n// A simple uuid for trace events - crypto may be unavailable in the sandbox.\nconst uid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {\n  const r = (Math.random() * 16) | 0;\n  return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);\n});\n\n// A message snapshot for the trace: role + content, without the internals of LangChain classes.\nconst asPlain = (m) => ({\n  role: m.role ?? (m._getType ? m._getType() : 'unknown'),\n  content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),\n  ...(Array.isArray(m.tool_calls) && m.tool_calls.length > 0\n    ? { tool_calls: m.tool_calls.map((c) => ({ name: c.name, args: c.args })) }\n    : {}),\n});\n\nconst textOf = (r) => (typeof r === 'string' ? r : (r?.content ?? r?.text ?? String(r)));\n\nconst items = typeof $input.all === 'function' ? $input.all() : [$input.item];\nconst results = [];\n\nfor (const item of items) {\n  const question = item.json.chatInput ?? item.json.text ?? '';\n  const chatSessionId = item.json.sessionId ?? 'no-session';\n  const traceStartedAt = new Date().toISOString();\n\n  // ─── BLOCK 2. Run state ──────────────────────────────────────────────────\n  // This part handles the state: the node has no memory between steps, so\n  // everything the agent has learned we accumulate ourselves in these variables, and we decide\n  // which of it goes into the next model call.\n  const llmCalls = [];   // each model call with timings - for the trace\n  const toolTrace = [];  // each tool call - for the trace and for the output\n  const findings = [];   // findings per plan step - the input for the synthesis\n  const progress = [];   // the progress log; in the author's version it went to the browser console,\n                         // but with a webhook launch there is no console - so it goes into the output\n  let steps = 0;\n  let toolIterationsTotal = 0;\n\n  const logStatus = (percent, details) => {\n    const line = `[${new Date().toISOString().slice(11, 19)}] ${percent}% - ${details}`;\n    progress.push(line);\n    console.log(line);\n  };\n\n  // One model call with a record in the trace. The name is needed so that in Langfuse\n  // the planner can be told apart from the research steps and from the synthesis.\n  const callModel = async (llm, messages, name) => {\n    const startTime = new Date().toISOString();\n    const inputSnapshot = messages.map(asPlain);\n    const resp = await llm.invoke(messages);\n    llmCalls.push({\n      name,\n      startTime,\n      endTime: new Date().toISOString(),\n      input: inputSnapshot,\n      output: asPlain(resp),\n      usage: resp?.usage_metadata ?? resp?.response_metadata?.tokenUsage ?? null,\n    });\n    return resp;\n  };\n\n  // ─── BLOCK 3. Memory: reading ────────────────────────────────────────────\n  // This part handles memory. The node does not mix it in by itself: the history\n  // has to be read and put into the message array by hand. contextWindowLength=2\n  // means the last two \"question - answer\" pairs.\n  let history = [];\n  if (memory) {\n    const mem = await memory.loadMemoryVariables({});\n    const stored = mem?.chat_history ?? mem?.[memory.memoryKey];\n    if (Array.isArray(stored)) history = stored;\n  }\n\n  // ─── BLOCK 4. Planning ───────────────────────────────────────────────────\n  // This part handles the plan. The first model call does not answer the question\n  // but decides two things: whether external sources are needed at all and into which sub-queries\n  // to split the question. The needs_research flag is also a stop condition: without it\n  // a research agent pulls the tools even on \"hello\".\n  logStatus(10, 'parsing the question and building the research plan');\n\n  const toolsBrief = tools.length\n    ? tools.map((t) => `${t.name}: ${(t.description || '').slice(0, 120)}`).join('; ')\n    : 'инструментов нет';\n\n  const planSystem = [\n    'Ты планировщик исследования. Отвечай только JSON, без пояснений и без markdown-обрамления.',\n    'Доступные инструменты: ' + toolsBrief + '.',\n    `Если вопросу нужны внешние факты - needs_research=true и от 1 до ${MAX_PLAN_QUERIES} коротких подзапросов на поиск фактов.`,\n    'Арифметику в подзапросы не выноси: она считается в конце, на числах, которые найдутся. Подзапросы - только про факты.',\n    'Если ответ уже есть в истории диалога, или это приветствие, или общий вопрос про то, как всё устроено - needs_research=false и search_queries=[].',\n    'Формат: {\"needs_research\": true|false, \"research_topic\": \"короткое название\", \"search_queries\": [\"...\"], \"report_sections\": [\"...\"]}',\n  ].join('\\n');\n\n  const planMessages = [\n    { role: 'system', content: planSystem },\n    ...history,\n    { role: 'user', content: question },\n  ];\n\n  let plan = { needs_research: false, research_topic: '', search_queries: [], report_sections: [] };\n  let planError = null;\n  try {\n    const planResp = await callModel(model, planMessages, 'plan');\n    const rawPlan = textOf(planResp);\n    if (JsonOutputParserCtor) {\n      // The author's pattern: JsonOutputParser strips the markdown wrapping from the JSON itself.\n      plan = await new JsonOutputParserCtor().parse(rawPlan);\n    } else {\n      const cleaned = rawPlan.replace(/```json/gi, '').replace(/```/g, '').trim();\n      plan = JSON.parse(cleaned.slice(cleaned.indexOf('{'), cleaned.lastIndexOf('}') + 1));\n    }\n  } catch (e) {\n    // Degrade softly: the plan did not parse - treat the question as a research one\n    // and go in one step with the original wording.\n    planError = String(e.message).slice(0, 200);\n    plan = { needs_research: tools.length > 0, research_topic: question.slice(0, 60), search_queries: [question], report_sections: [] };\n  }\n\n  const queries = Array.isArray(plan.search_queries) ? plan.search_queries.slice(0, MAX_STEPS) : [];\n  const needsResearch = Boolean(plan.needs_research) && queries.length > 0 && tools.length > 0;\n  logStatus(20, needsResearch\n    ? `plan ready: ${queries.length} sub-queries on the topic \"${plan.research_topic ?? ''}\"`\n    : 'external sources are not needed, answering from the history and the knowledge of the model');\n\n  // ─── BLOCK 5. Tools: one pass of \"model -> tools -> model\" ────────────────\n  // This part handles the execution of calls. The model only asks \"call\n  // Wikipedia with these arguments\"; finding the tool, running it and putting the\n  // result back into the dialogue is the node code's job. The inner loop is bounded by\n  // MAX_TOOL_ITERATIONS: without a counter the model can pull the tool endlessly.\n  const modelWithTools = tools.length > 0 ? model.bindTools(tools) : model;\n\n  const runWithTools = async (messages, label, stepNo, percent) => {\n    let resp = await callModel(modelWithTools, messages, label);\n    let toolIterations = 0;\n\n    while (\n      Array.isArray(resp.tool_calls) &&\n      resp.tool_calls.length > 0 &&\n      toolIterations < MAX_TOOL_ITERATIONS\n    ) {\n      toolIterations += 1;\n      toolIterationsTotal += 1;\n      messages.push(resp);\n\n      for (const call of resp.tool_calls) {\n        const tool = tools.find((t) => t && t.name === call.name);\n        const toolStartedAt = new Date().toISOString();\n        let observation;\n        if (!tool) {\n          observation = 'Tool ' + call.name + ' is not connected to the node';\n        } else {\n          try {\n            observation = await tool.invoke(call.args);\n          } catch (toolError) {\n            observation = 'Tool ' + call.name + ' failed: ' + String(toolError.message).slice(0, 200);\n          }\n        }\n        const text = typeof observation === 'string' ? observation : JSON.stringify(observation);\n        toolTrace.push({\n          step: stepNo, tool: call.name, args: call.args,\n          result: text.slice(0, 1000),\n          startTime: toolStartedAt, endTime: new Date().toISOString(),\n        });\n        logStatus(percent, `tool ${call.name} returned ${text.length} characters`);\n\n        messages.push(\n          ToolMessageCtor\n            ? new ToolMessageCtor({ content: text, tool_call_id: call.id, name: call.name })\n            : { role: 'tool', content: text, tool_call_id: call.id, name: call.name },\n        );\n      }\n\n      resp = await callModel(modelWithTools, messages, `${label}-after-tools-${toolIterations}`);\n    }\n\n    return { resp, toolIterations };\n  };\n\n  // ─── BLOCK 6. Research loop ─────────────────────────────────────────────\n  // This part handles the outer loop: the pass through the plan steps. Each step is\n  // a separate dialogue with the model, the state between steps is held by the findings array.\n  // A step's error is caught here so that one failed tool does not bring down the run.\n  const STEP_SYSTEM = [\n    'Ты исследователь. Ответь на подзапрос фактами, до пяти предложений, по-русски.',\n    'Факты бери из инструмента wikipedia_search, а не из памяти модели.',\n    'Запрос к инструменту формулируй коротко, названием статьи (например: Минск).',\n    'Для любой арифметики вызывай calculator, сам не считай.',\n    'Если инструмент ничего не нашёл, так и скажи и не выдумывай цифры.',\n  ].join(' ');\n\n  if (needsResearch) {\n    for (const query of queries) {\n      steps += 1;\n      const percent = 20 + Math.floor((steps / queries.length) * 50);\n      logStatus(percent, `step ${steps}/${queries.length}: ${query}`);\n\n      const stepMessages = [\n        { role: 'system', content: STEP_SYSTEM },\n        { role: 'user', content: query },\n      ];\n\n      try {\n        const { resp, toolIterations } = await runWithTools(stepMessages, `step-${steps}`, steps, percent);\n        findings.push({ query, result: textOf(resp), tool_iterations: toolIterations });\n      } catch (stepError) {\n        // The step failed - record that as a finding and move on: the synthesis must\n        // take place even on incomplete data.\n        findings.push({ query, result: 'Step not completed: ' + String(stepError.message).slice(0, 200), tool_iterations: 0 });\n        logStatus(percent, `step ${steps} failed: ${String(stepError.message).slice(0, 100)}`);\n      }\n    }\n  }\n\n  // ─── BLOCK 7. Synthesis ──────────────────────────────────────────────────\n  // This part handles assembling the answer. The model sees the question a second time,\n  // but now together with the findings of all steps - the collected state from block 2.\n  // If no research was needed, we answer right away, with the history in context.\n  logStatus(80, needsResearch ? 'combining the findings into an answer' : 'answering without tools');\n\n  let finalText;\n  if (needsResearch) {\n    const findingsText = findings\n      .map((f, i) => `Подзапрос ${i + 1}: ${f.query}\\nНайдено: ${f.result}`)\n      .join('\\n\\n');\n    const synthesisMessages = [\n      {\n        role: 'system',\n        content: 'Ты аналитик. Собери из находок связный ответ по-русски, до восьми предложений. Опирайся только на находки, своих фактов не добавляй. Если в вопросе есть вычисление - вызови calculator на числах из находок, сам не считай. Поиск на этом шаге уже закончен: wikipedia_search не вызывай. Если находки противоречат друг другу, скажи об этом.',\n      },\n      ...history,\n      { role: 'user', content: `Вопрос: ${question}\\n\\nНаходки:\\n${findingsText}` },\n    ];\n    // The synthesis runs with tools: the calculation depends on the numbers found,\n    // and up to this point the planner did not know them - they can only be computed now.\n    const { resp } = await runWithTools(synthesisMessages, 'synthesis', 'synthesis', 90);\n    finalText = textOf(resp);\n  } else {\n    const directMessages = [\n      { role: 'system', content: 'Ты демо-агент занятия. Отвечай кратко, по-русски, опираясь на историю диалога.' },\n      ...history,\n      { role: 'user', content: question },\n    ];\n    finalText = textOf(await callModel(model, directMessages, 'direct-answer'));\n  }\n\n  // The report as a document is the author's idea: the chat gets a digest, and the full text\n  // with the methodology goes further along the workflow (to a file, to email, to a database).\n  // In the author's version this was a second main output and the return [[...], [...]] format;\n  // here there is one output, because the answer goes back to the chat, and it is also the report.\n  const reportMarkdown = needsResearch\n    ? [\n        `# ${plan.research_topic || question}`,\n        ``, `**Вопрос:** ${question}`,\n        `**Шагов исследования:** ${steps}`, `**Вызовов инструментов:** ${toolTrace.length}`,\n        ``, `## Ответ`, ``, finalText,\n        ``, `## Методология`, ``,\n        ...findings.map((f, i) => `${i + 1}. ${f.query}`),\n      ].join('\\n')\n    : null;\n\n  // ─── BLOCK 8. Memory: writing ────────────────────────────────────────────\n  // This part makes sure the next dialogue turn remembers this one.\n  // We save the digest, not the whole report: memory gets what will be needed\n  // as context, not everything the agent saw.\n  if (memory) {\n    await memory.saveContext({ input: question }, { output: finalText });\n  }\n\n  // ─── BLOCK 9. Observability ──────────────────────────────────────────────\n  // This part handles the run's trace in Langfuse: trace - the whole run,\n  // generation - each model call, span - each tool call.\n  // In code you assemble the trace yourself - this is the difference from the AI Agent node, where everything is hidden.\n  let langfuseStatus = 'off';\n  if (LANGFUSE_BASIC && !LANGFUSE_BASIC.startsWith('__')) {\n    const traceId = uid();\n    const now = () => new Date().toISOString();\n    const batch = [\n      {\n        id: uid(), type: 'trace-create', timestamp: now(),\n        body: {\n          id: traceId, timestamp: traceStartedAt,\n          name: 'm3-research-agent',\n          sessionId: chatSessionId,\n          input: question, output: finalText,\n          metadata: {\n            needs_research: needsResearch,\n            steps, tool_iterations: toolIterationsTotal,\n            history_len: history.length,\n            research_topic: plan.research_topic ?? null,\n            node: 'LangChain Code',\n          },\n        },\n      },\n      ...llmCalls.map((c) => ({\n        id: uid(), type: 'generation-create', timestamp: now(),\n        body: {\n          id: uid(), traceId, name: c.name,\n          model: MODEL_NAME,\n          startTime: c.startTime, endTime: c.endTime,\n          input: c.input, output: c.output,\n          ...(c.usage ? { usage: { input: c.usage.input_tokens ?? c.usage.promptTokens, output: c.usage.output_tokens ?? c.usage.completionTokens } } : {}),\n        },\n      })),\n      ...toolTrace.map((t) => ({\n        id: uid(), type: 'span-create', timestamp: now(),\n        body: {\n          id: uid(), traceId, name: 'tool:' + t.tool,\n          startTime: t.startTime, endTime: t.endTime,\n          input: t.args, output: t.result,\n        },\n      })),\n    ];\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST',\n        url: LANGFUSE_HOST + '/api/public/ingestion',\n        headers: { Authorization: 'Basic ' + LANGFUSE_BASIC, 'Content-Type': 'application/json' },\n        body: { batch },\n        json: true,\n      });\n      langfuseStatus = 'sent';\n    } catch (e) {\n      langfuseStatus = 'error: ' + String(e.message).slice(0, 120);\n    }\n  }\n\n  logStatus(100, `done: ${steps} steps, ${toolTrace.length} tool calls, ${llmCalls.length} model calls`);\n\n  // ─── BLOCK 10. Output ────────────────────────────────────────────────────\n  // This part handles diagnostics. Everything that lives inside in the AI Agent node\n  // is returned outward here: how many steps there were, what was asked of the tools,\n  // how many messages came from memory, whether the trace went out.\n  results.push({\n    json: {\n      output: finalText,\n      question,\n      needs_research: needsResearch,\n      research_topic: plan.research_topic ?? null,\n      plan_queries: queries,\n      plan_error: planError,\n      iterations: steps,\n      tool_iterations: toolIterationsTotal,\n      llm_calls: llmCalls.length,\n      tool_calls: toolTrace,\n      findings,\n      history_len: history.length,\n      tools_available: tools.map((t) => t && t.name).filter(Boolean),\n      modules: { tool_message: Boolean(ToolMessageCtor), json_parser: Boolean(JsonOutputParserCtor) },\n      report_markdown: reportMarkdown,\n      progress,\n      langfuse: langfuseStatus,\n    },\n  });\n}\n\nreturn results;\n"
+     }
+    },
+    "inputs": {
+     "input": [
+      {
+       "type": "main",
+       "required": true
+      },
+      {
+       "type": "ai_languageModel",
+       "maxConnections": 1,
+       "required": true
+      },
+      {
+       "type": "ai_memory",
+       "maxConnections": 1
+      },
+      {
+       "type": "ai_tool"
+      }
+     ]
+    },
+    "outputs": {
+     "output": [
+      {
+       "type": "main"
+      }
+     ]
+    }
+   }
+  },
+  {
+   "id": "26f83f1a-894c-4120-b802-e9b824680b14",
+   "name": "OpenAI · пример 2",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    -120,
+    1160
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "value": "gpt-4.1-mini",
+     "mode": "list",
+     "cachedResultName": "gpt-4.1-mini"
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "4c28c0a0-bdc6-4b63-bdae-4ea52b15516d",
+   "name": "Память · пример 2",
+   "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+   "typeVersion": 1.4,
+   "position": [
+    40,
+    1160
+   ],
+   "parameters": {
+    "sessionIdType": "customKey",
+    "sessionKey": "={{ 'm3-research-' + $json.sessionId }}",
+    "contextWindowLength": 2,
+    "tableName": "n8n_chat_histories"
+   }
+  },
+  {
+   "id": "74a3b14f-8c23-4812-9664-cb4b65c240c1",
+   "name": "wikipedia_search",
+   "type": "n8n-nodes-base.httpRequestTool",
+   "typeVersion": 4.2,
+   "position": [
+    200,
+    1160
+   ],
+   "parameters": {
+    "toolDescription": "Поиск фактов в русской Википедии. На вход - короткий запрос, обычно название статьи (например: Минск). Возвращает JSON с вводными абзацами найденных статей.",
+    "method": "GET",
+    "url": "https://ru.wikipedia.org/w/api.php",
+    "sendQuery": true,
+    "specifyQuery": "keypair",
+    "queryParameters": {
+     "parameters": [
+      {
+       "name": "action",
+       "value": "query"
+      },
+      {
+       "name": "format",
+       "value": "json"
+      },
+      {
+       "name": "prop",
+       "value": "extracts"
+      },
+      {
+       "name": "exintro",
+       "value": "1"
+      },
+      {
+       "name": "explaintext",
+       "value": "1"
+      },
+      {
+       "name": "redirects",
+       "value": "1"
+      },
+      {
+       "name": "generator",
+       "value": "search"
+      },
+      {
+       "name": "gsrlimit",
+       "value": "2"
+      },
+      {
+       "name": "gsrsearch",
+       "value": "={{ $fromAI('query', 'Поисковый запрос к русской Википедии, обычно название статьи', 'string') }}"
+      }
+     ]
+    },
+    "sendHeaders": true,
+    "specifyHeaders": "keypair",
+    "headerParameters": {
+     "parameters": [
+      {
+       "name": "User-Agent",
+       "value": "HSS-AIdev-course-demo/1.0 (n8n LangChain Code lesson)"
+      },
+      {
+       "name": "Accept",
+       "value": "application/json"
+      }
+     ]
+    },
+    "options": {}
+   }
+  },
+  {
+   "id": "db99478e-3186-4ae4-a57a-eb20551b81e8",
+   "name": "Calculator · пример 2",
+   "type": "@n8n/n8n-nodes-langchain.toolCalculator",
+   "typeVersion": 1,
+   "position": [
+    340,
+    1160
+   ],
+   "parameters": {}
+  },
+  {
+   "id": "9e361762-9635-4e30-ad15-3d8f92d1c03b",
+   "name": "Note · пример 3",
+   "type": "n8n-nodes-base.stickyNote",
+   "typeVersion": 1,
+   "position": [
+    -160,
+    1480
+   ],
+   "parameters": {
+    "content": "## Demo 3 · Orchestrator -> workers -> synthesizer\n\nOne LangChain Code node makes 5 model calls: the orchestrator splits the request into 3 subtasks,\nthree workers execute them simultaneously via Promise.all, the synthesizer stitches the drafts into a document.\nOutput 1 - the result for the chat, output 2 - the workers' drafts. Memory in Postgres, trace in Langfuse.\nAll roles run on one model, gpt-4.1-mini: the stand has one LLM credential.\nIn production the orchestrator is usually stronger than the workers - its mistake costs all three subsequent calls.",
+    "height": 260,
+    "width": 900,
+    "color": 6
+   }
+  },
+  {
+   "id": "08e5d3da-e926-4a33-8077-5b5725fd90c1",
+   "name": "Пример 3 · Оркестратор (LangChain Code)",
+   "type": "@n8n/n8n-nodes-langchain.code",
+   "typeVersion": 1,
+   "position": [
+    220,
+    1820
+   ],
+   "parameters": {
+    "inputs": {
+     "input": [
+      {
+       "type": "main",
+       "required": true
+      },
+      {
+       "type": "ai_languageModel",
+       "maxConnections": 2,
+       "required": true
+      },
+      {
+       "type": "ai_memory",
+       "maxConnections": 1
+      }
+     ]
+    },
+    "outputs": {
+     "output": [
+      {
+       "type": "main"
+      },
+      {
+       "type": "main"
+      }
+     ]
+    },
+    "code": {
+     "execute": {
+      "code": "/**\n * M3 · Demo 3: an orchestrator -> three workers in parallel -> a synthesizer.\n * The orchestrator-workers pattern from Anthropic's article on effective agents,\n * assembled entirely inside ONE LangChain Code node.\n *\n * Five model calls per run: one planning, three executing (simultaneously) and one stitching.\n * The ports are declared in the node's Inputs/Outputs: main + ai_languageModel (two model nodes) + ai_memory -> 2 x main.\n *\n * DEVIATION FROM THE AUTHOR'S ORIGINAL. In the author's version the orchestrator and the synthesizer run on Claude, the workers on GPT.\n * The demo stand has one working LLM credential (OpenAI), so ALL five calls go to gpt-4.1-mini,\n * and the roles are separated by prompts and temperature. In production the orchestrator is usually set stronger than the workers:\n * it decides what to do at all, and its mistake costs all three subsequent calls.\n */\n\nconst LANGFUSE_HOST = 'https://your-langfuse.example.com';\nconst LANGFUSE_BASIC = '__LANGFUSE_BASIC__'; // Basic = base64 of \"pk:sk\"; substitute your own keys when publishing externally\nconst SUBTASK_COUNT = 3;\n\n// ─────────────────────────────────────────────────────────────────────────────\n// 1. PORTS. This part handles where the model and memory come from.\n// Connected nodes are obtained by calling the port, not from $json: $json carries only the payload.\n// TWO model nodes are connected to the ai_languageModel port, so the port returns an array, not a single object.\n// ─────────────────────────────────────────────────────────────────────────────\nconst lmPort = await this.getInputConnectionData('ai_languageModel', 0);\nconst models = Array.isArray(lmPort) ? lmPort.filter(Boolean) : (lmPort ? [lmPort] : []);\nif (models.length === 0) {\n  throw new Error('The ai_languageModel port is empty: connect at least one model node to the node');\n}\nconst memory = await this.getInputConnectionData('ai_memory', 0);\n\n// Roles are separated by temperature, not by position in the array: the order depends on the order of connections\n// and silently changes as soon as a connection is re-plugged. The cold model plans and stitches, the warm one writes.\nconst byTemp = [...models].sort((a, b) => (a?.temperature ?? 1) - (b?.temperature ?? 1));\nconst plannerModel = byTemp[0];\nconst workerModel = byTemp[byTemp.length - 1];\nconst modelsInfo = models.map((m) => ({\n  model: m?.modelName ?? m?.model ?? 'unknown',\n  temperature: m?.temperature ?? null,\n}));\n\n// A check of the node sandbox: in the author's version the code relies on require('@langchain/core/...').\n// These modules are not needed here, but it is useful to see the status in the run diagnostics.\nlet requireProbe;\ntry {\n  require('@langchain/core/prompts');\n  requireProbe = 'ok';\n} catch (e) {\n  requireProbe = 'unavailable: ' + String(e.message).slice(0, 80);\n}\n\n// ─────────────────────────────────────────────────────────────────────────────\n// 2. UTILITIES. Event identifiers, message snapshots and parsing of the model's answer.\n// ─────────────────────────────────────────────────────────────────────────────\nconst uid = () => 'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, (c) => {\n  const r = (Math.random() * 16) | 0;\n  return (c === 'x' ? r : (r & 0x3) | 0x8).toString(16);\n});\n\nconst asPlain = (m) => ({\n  role: m.role ?? (m._getType ? m._getType() : 'unknown'),\n  content: typeof m.content === 'string' ? m.content : JSON.stringify(m.content),\n});\n\n// The model likes to wrap JSON in triple quotes or to precede it with a phrase.\n// We take the piece from the first opening to the last closing brace - that is enough.\nconst parseJsonLoose = (raw) => {\n  const text = String(raw ?? '');\n  const start = text.indexOf('{');\n  const end = text.lastIndexOf('}');\n  if (start < 0 || end <= start) return null;\n  try {\n    return JSON.parse(text.slice(start, end + 1));\n  } catch (e) {\n    return null;\n  }\n};\n\nconst items = typeof $input.all === 'function' ? $input.all() : [$input.item];\nconst chatOut = [];\nconst draftsOut = [];\n\nfor (const item of items) {\n  const question = item.json.chatInput ?? item.json.text ?? '';\n  const chatSessionId = item.json.sessionId ?? 'no-session';\n  const traceStartedAt = new Date().toISOString();\n  const runStartedMs = Date.now();\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 3. MEMORY (reading). This part handles the state between dialogue turns.\n  // Without it the second turn does not understand what \"shorten this\" means: the node has no memory of its own,\n  // all the state lives in the connected memory node and is mixed into the prompt by hand.\n  // ───────────────────────────────────────────────────────────────────────────\n  let history = [];\n  if (memory) {\n    const mem = await memory.loadMemoryVariables({});\n    const stored = mem?.chat_history ?? mem?.[memory.memoryKey];\n    if (Array.isArray(stored)) history = stored;\n  }\n  const historyText = history.map((m) => asPlain(m).role + ': ' + asPlain(m).content).join('\\n');\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 4. CALL LOG. Each model call is written here with timings:\n  // the trace is later assembled from this log, and it shows that the workers ran simultaneously.\n  // ───────────────────────────────────────────────────────────────────────────\n  const llmCalls = [];\n  const callLLM = async (name, model, messages) => {\n    const startTime = new Date().toISOString();\n    const t0 = Date.now();\n    const resp = await model.invoke(messages);\n    const text = typeof resp === 'string' ? resp : (resp?.content ?? resp?.text ?? String(resp));\n    llmCalls.push({\n      name,\n      startTime,\n      endTime: new Date().toISOString(),\n      ms: Date.now() - t0,\n      offset_ms: t0 - runStartedMs, // offset from the run start: it is the same for the three workers\n      input: messages.map(asPlain),\n      output: text,\n      usage: resp?.usage_metadata ?? resp?.response_metadata?.tokenUsage ?? null,\n    });\n    return text;\n  };\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 5. ORCHESTRATION. This part handles splitting the work into subtasks.\n  // The subtasks are NOT hardcoded: the model comes up with them for the specific request and returns JSON.\n  // That is the difference from an ordinary chain - the composition of the work is determined at run time, not at build time.\n  // ───────────────────────────────────────────────────────────────────────────\n  const orchestratorMessages = [\n    {\n      role: 'system',\n      content: 'Ты оркестратор. Ты НЕ пишешь документ сам. Ты делишь работу ровно на ' + SUBTASK_COUNT +\n        ' независимые подзадачи, которые можно выполнить одновременно, не заглядывая в результат соседа. ' +\n        'Верни ТОЛЬКО JSON вида {\"topic\":\"...\",\"subtasks\":[{\"id\":\"w1\",\"role\":\"краткая роль\",\"goal\":\"что на выходе\",\"instruction\":\"что именно сделать, 1-2 предложения\"}]}. ' +\n        'Ровно ' + SUBTASK_COUNT + ' элементов в subtasks. Подзадачи не должны пересекаться по содержанию. Пиши по-русски.',\n    },\n    ...(historyText ? [{ role: 'user', content: 'Предыдущий ход диалога:\\n' + historyText }] : []),\n    { role: 'user', content: 'Запрос пользователя: ' + question },\n  ];\n\n  const planRaw = await callLLM('orchestrator', plannerModel, orchestratorMessages);\n  let plan = parseJsonLoose(planRaw);\n  let planFallback = false;\n\n  // Degradation without failure: if the orchestrator returned non-JSON, the work is still split into three parts.\n  if (!plan || !Array.isArray(plan.subtasks) || plan.subtasks.length === 0) {\n    planFallback = true;\n    plan = {\n      topic: question,\n      subtasks: [\n        { id: 'w1', role: 'фактура', goal: 'основные факты по запросу', instruction: 'Собери основные факты и контекст по запросу.' },\n        { id: 'w2', role: 'за', goal: 'аргументы за', instruction: 'Сформулируй сильные стороны и аргументы за.' },\n        { id: 'w3', role: 'против', goal: 'аргументы против', instruction: 'Сформулируй риски, ограничения и аргументы против.' },\n      ],\n    };\n  }\n  const subtasks = plan.subtasks.slice(0, SUBTASK_COUNT);\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 6. PARALLELISM. The crux of the example: three workers go to work SIMULTANEOUSLY.\n  // Promise.all starts all three calls at once and waits for the last one, so three calls\n  // of ~8 seconds take ~8 seconds, not 24. Each worker has exactly one model call:\n  // there are no loops inside, the stop condition is trivial - the call returned.\n  // ───────────────────────────────────────────────────────────────────────────\n  const workersStartedMs = Date.now();\n  const workerTexts = await Promise.all(subtasks.map((task, i) => callLLM(\n    'worker-' + (i + 1) + ':' + (task.id ?? 'w' + (i + 1)),\n    workerModel,\n    [\n      {\n        role: 'system',\n        content: 'Ты воркер в команде из ' + SUBTASK_COUNT + ' исполнителей. Твоя роль: ' + (task.role ?? 'исполнитель') + '. ' +\n          'Делай ТОЛЬКО свою часть, не пересказывай чужие. Ответ по-русски, до 200 слов, тезисами, без вступлений.',\n      },\n      {\n        role: 'user',\n        content: 'Общий запрос: ' + question + '\\nТвоя подзадача: ' + (task.instruction ?? task.goal ?? '') +\n          '\\nЧто должно получиться: ' + (task.goal ?? 'полезный фрагмент документа'),\n      },\n    ],\n  )));\n  const workersWallMs = Date.now() - workersStartedMs;\n\n  const workerDrafts = subtasks.map((task, i) => ({\n    id: task.id ?? 'w' + (i + 1),\n    role: task.role ?? 'исполнитель',\n    goal: task.goal ?? '',\n    instruction: task.instruction ?? '',\n    draft: workerTexts[i],\n  }));\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 7. SYNTHESIS. This part handles stitching three drafts into one document.\n  // The synthesizer sees all the drafts at once and the dialogue history - which is why \"shorten this\"\n  // works on the second turn: \"this\" lies in memory, not in the request text.\n  // ───────────────────────────────────────────────────────────────────────────\n  const synthesizerMessages = [\n    {\n      role: 'system',\n      content: 'Ты синтезатор. На входе - черновики нескольких исполнителей по одному запросу. ' +\n        'Собери из них ОДИН связный документ на русском: короткий заголовок, затем разделы. ' +\n        'Убери повторы между черновиками, противоречия покажи явно. Ничего не выдумывай сверх черновиков.',\n    },\n    ...(historyText ? [{ role: 'user', content: 'Предыдущий ход диалога:\\n' + historyText }] : []),\n    {\n      role: 'user',\n      content: 'Запрос пользователя: ' + question + '\\n\\nЧерновики исполнителей:\\n' +\n        workerDrafts.map((d) => '### ' + d.role + '\\n' + d.draft).join('\\n\\n'),\n    },\n  ];\n  const finalText = await callLLM('synthesizer', plannerModel, synthesizerMessages);\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 8. MEMORY (writing). We save the request and the result. We do not put the workers' drafts into memory:\n  // that is intermediate run state, not dialogue state, and it would only clog the window.\n  // ───────────────────────────────────────────────────────────────────────────\n  if (memory) {\n    await memory.saveContext({ input: question }, { output: finalText });\n  }\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 9. PARALLELISM DIAGNOSTICS. The sum of the workers' times against the wall-clock time:\n  // if the sum is noticeably greater than the wall clock, the calls really did overlap.\n  // ───────────────────────────────────────────────────────────────────────────\n  const workerCalls = llmCalls.filter((c) => c.name.startsWith('worker-'));\n  const workersSumMs = workerCalls.reduce((acc, c) => acc + c.ms, 0);\n  const timings = {\n    total_ms: Date.now() - runStartedMs,\n    orchestrator_ms: llmCalls.find((c) => c.name === 'orchestrator')?.ms ?? null,\n    workers_wall_ms: workersWallMs,\n    workers_sum_ms: workersSumMs,\n    workers_speedup: workersWallMs > 0 ? Number((workersSumMs / workersWallMs).toFixed(2)) : null,\n    workers_parallel: workersWallMs < workersSumMs * 0.8,\n    synthesizer_ms: llmCalls.find((c) => c.name === 'synthesizer')?.ms ?? null,\n    per_call: llmCalls.map((c) => ({ name: c.name, ms: c.ms, offset_ms: c.offset_ms })),\n  };\n\n  // ───────────────────────────────────────────────────────────────────────────\n  // 10. OBSERVABILITY. The run's trace goes to Langfuse in one batch.\n  // trace - the whole run, generation - each of the five model calls with its own start and end.\n  // The node sandbox has no SDK of its own and fetch is unavailable, so we send to the ingestion API\n  // via this.helpers.httpRequest. In the trace the three workers overlap in time -\n  // that is the visual proof of parallelism.\n  // ───────────────────────────────────────────────────────────────────────────\n  let langfuseStatus = 'off';\n  if (LANGFUSE_BASIC && !LANGFUSE_BASIC.startsWith('__')) {\n    const traceId = uid();\n    const now = () => new Date().toISOString();\n    const batch = [\n      {\n        id: uid(), type: 'trace-create', timestamp: now(),\n        body: {\n          id: traceId, timestamp: traceStartedAt,\n          name: 'm3-orchestrator-agent',\n          sessionId: chatSessionId,\n          input: question, output: finalText,\n          metadata: {\n            node: 'LangChain Code',\n            pattern: 'orchestrator-workers',\n            subtasks: subtasks.length,\n            plan_fallback: planFallback,\n            history_len: history.length,\n            models: modelsInfo,\n            timings,\n          },\n        },\n      },\n      ...llmCalls.map((c) => ({\n        id: uid(), type: 'generation-create', timestamp: now(),\n        body: {\n          id: uid(), traceId, name: c.name,\n          model: 'gpt-4.1-mini',\n          startTime: c.startTime, endTime: c.endTime,\n          input: c.input, output: c.output,\n          ...(c.usage ? { usage: { input: c.usage.input_tokens ?? c.usage.promptTokens, output: c.usage.output_tokens ?? c.usage.completionTokens } } : {}),\n        },\n      })),\n    ];\n    try {\n      await this.helpers.httpRequest({\n        method: 'POST',\n        url: LANGFUSE_HOST + '/api/public/ingestion',\n        headers: { Authorization: 'Basic ' + LANGFUSE_BASIC, 'Content-Type': 'application/json' },\n        body: { batch },\n        json: true,\n      });\n      langfuseStatus = 'sent';\n    } catch (e) {\n      langfuseStatus = 'error: ' + String(e.message).slice(0, 120);\n    }\n  }\n\n  const diagnostics = {\n    plan_topic: plan.topic ?? question,\n    plan_fallback: planFallback,\n    subtasks: subtasks.map((t, i) => ({ id: t.id ?? 'w' + (i + 1), role: t.role ?? '', goal: t.goal ?? '' })),\n    llm_calls: llmCalls.length,\n    models_connected: modelsInfo,\n    planner_temperature: plannerModel?.temperature ?? null,\n    worker_temperature: workerModel?.temperature ?? null,\n    history_len: history.length,\n    langchain_require: requireProbe,\n    langfuse: langfuseStatus,\n    timings,\n  };\n\n  // OUTPUT 1 (main) - the result for the chat. OUTPUT 2 (main) - the workers' drafts, for a file or an archive.\n  chatOut.push({ json: { output: finalText, question, sessionId: chatSessionId, diagnostics } });\n  draftsOut.push({ json: { type: 'worker_drafts', question, sessionId: chatSessionId, plan_topic: plan.topic ?? question, drafts: workerDrafts, timings } });\n}\n\nreturn [chatOut, draftsOut];\n"
+     }
+    }
+   }
+  },
+  {
+   "id": "ef7fb0c2-f611-49e0-9121-0d689a1c9b1f",
+   "name": "OpenAI · пример 3 оркестратор",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    120,
+    2080
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "value": "gpt-4.1-mini",
+     "mode": "list",
+     "cachedResultName": "gpt-4.1-mini"
+    },
+    "options": {
+     "temperature": 0.2
+    }
+   }
+  },
+  {
+   "id": "0a4b83ff-9d19-4b62-847e-ab0e34705736",
+   "name": "OpenAI · пример 3 воркеры",
+   "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+   "typeVersion": 1.2,
+   "position": [
+    320,
+    2080
+   ],
+   "parameters": {
+    "model": {
+     "__rl": true,
+     "value": "gpt-4.1-mini",
+     "mode": "list",
+     "cachedResultName": "gpt-4.1-mini"
+    },
+    "options": {
+     "temperature": 0.8
+    }
+   }
+  },
+  {
+   "id": "3d8323e3-8500-43cb-8611-8114bb62f1fb",
+   "name": "Память · пример 3",
+   "type": "@n8n/n8n-nodes-langchain.memoryPostgresChat",
+   "typeVersion": 1.4,
+   "position": [
+    540,
+    2080
+   ],
+   "parameters": {
+    "sessionIdType": "customKey",
+    "sessionKey": "={{ 'm3-orch-' + $json.sessionId }}",
+    "contextWindowLength": 2,
+    "tableName": "n8n_chat_histories"
+   }
+  }
+ ],
+ "connections": {
+  "Сообщение в чате": {
+   "main": [
+    [
+     {
+      "node": "Пример 1 · Мини-цикл (LangChain Code)",
+      "type": "main",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI · пример 1": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Пример 1 · Мини-цикл (LangChain Code)",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Calculator · пример 1": {
+   "ai_tool": [
+    [
+     {
+      "node": "Пример 1 · Мини-цикл (LangChain Code)",
+      "type": "ai_tool",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Память · пример 1": {
+   "ai_memory": [
+    [
+     {
+      "node": "Пример 1 · Мини-цикл (LangChain Code)",
+      "type": "ai_memory",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI · пример 2": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Пример 2 · Research-агент (LangChain Code)",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Память · пример 2": {
+   "ai_memory": [
+    [
+     {
+      "node": "Пример 2 · Research-агент (LangChain Code)",
+      "type": "ai_memory",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "wikipedia_search": {
+   "ai_tool": [
+    [
+     {
+      "node": "Пример 2 · Research-агент (LangChain Code)",
+      "type": "ai_tool",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Calculator · пример 2": {
+   "ai_tool": [
+    [
+     {
+      "node": "Пример 2 · Research-агент (LangChain Code)",
+      "type": "ai_tool",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI · пример 3 оркестратор": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Пример 3 · Оркестратор (LangChain Code)",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "OpenAI · пример 3 воркеры": {
+   "ai_languageModel": [
+    [
+     {
+      "node": "Пример 3 · Оркестратор (LangChain Code)",
+      "type": "ai_languageModel",
+      "index": 0
+     }
+    ]
+   ]
+  },
+  "Память · пример 3": {
+   "ai_memory": [
+    [
+     {
+      "node": "Пример 3 · Оркестратор (LangChain Code)",
+      "type": "ai_memory",
+      "index": 0
+     }
+    ]
+   ]
+  }
+ },
+ "settings": {
+  "executionOrder": "v1"
+ }
+}
