@@ -1,0 +1,1293 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Advanced MCP</title>
+<style>
+:root{
+  --bg:#f7f6f2; --surface:#ffffff; --surface-2:#f0eee8; --border:#dedad0;
+  --text:#1d1c1a; --muted:#6b675f; --accent:#c4561f; --accent-soft:#f6e3d8;
+  --good:#1f7a4d; --good-bg:#dcf1e4;
+  --bad:#a12a2a; --bad-bg:#f7d6d6;
+  --info:#245ea8; --info-bg:#dce8f7;
+  --ext:#6b3fa0; --ext-bg:#ebdff7;
+  --warn:#8a5a00; --warn-bg:#fbedc9;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+    --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+    --good:#6fd39d; --good-bg:#173326; --bad:#f08a8a; --bad-bg:#3b1818;
+    --info:#8ab6ef; --info-bg:#18273c; --ext:#c3a0ef; --ext-bg:#2b2040;
+    --warn:#f0c25c; --warn-bg:#352a10;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+  --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+  --good:#6fd39d; --good-bg:#173326; --bad:#f08a8a; --bad-bg:#3b1818;
+  --info:#8ab6ef; --info-bg:#18273c; --ext:#c3a0ef; --ext-bg:#2b2040;
+  --warn:#f0c25c; --warn-bg:#352a10;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:18px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+code{font-size:.88em;background:var(--surface-2);padding:.08em .35em;border-radius:4px}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+
+/* chrome */
+.top{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;font-size:13px;color:var(--muted);z-index:5;background:var(--bg);border-bottom:1px solid var(--border)}
+.tracker{display:flex;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tracker::-webkit-scrollbar{display:none}
+.tracker button{border:0;background:transparent;padding:5px 10px;border-radius:999px;cursor:pointer;font-size:13px;color:var(--muted);white-space:nowrap}
+.tracker button b{font-variant-numeric:tabular-nums;margin-right:5px;opacity:.7}
+.tracker button:hover{color:var(--text)}
+.tracker button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tracker button.done{color:var(--text)}
+.controls{display:flex;gap:6px;align-items:center;flex:none}
+.btn{border:1px solid var(--border);background:var(--surface);padding:5px 11px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--text)}
+.btn:hover{border-color:var(--accent)}
+.btn kbd{font:11px ui-monospace,monospace;color:var(--muted);margin-left:4px}
+.progress{position:fixed;left:0;top:0;height:3px;background:var(--accent);transition:width .2s;z-index:6}
+
+/* slides */
+.deck{position:fixed;inset:52px 0 40px 0;overflow:hidden}
+.slide{position:absolute;inset:0;display:none;overflow-y:auto;padding:12px 16px 24px}
+.slide.on{display:block}
+.stage{max-width:1120px;min-height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center;padding:10px 0}
+.eyebrow{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 8px}
+h1{font-size:clamp(30px,5vw,56px);line-height:1.08;letter-spacing:-.02em;margin:0 0 14px}
+h2{font-size:clamp(24px,3.1vw,36px);line-height:1.15;letter-spacing:-.015em;margin:0 0 20px;max-width:1000px}
+h3{margin:0 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.lead{font-size:clamp(18px,2vw,23px);color:var(--muted);margin:0 0 18px;max-width:920px}
+.big{font-size:clamp(19px,2.1vw,25px);line-height:1.4;margin:0 0 14px}
+p{margin:0 0 10px}
+ul.points{margin:0 0 8px;padding:0;list-style:none}
+ul.points li{position:relative;padding:6px 0 6px 22px;font-size:clamp(17px,1.8vw,21px)}
+ul.points li:before{content:"";position:absolute;left:2px;top:18px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+ul.points li small{display:block;color:var(--muted);font-size:.8em}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:st}
+ol.steps li{counter-increment:st;position:relative;padding:6px 0 6px 38px;font-size:clamp(16px,1.7vw,20px)}
+ol.steps li:before{content:counter(st);position:absolute;left:0;top:7px;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+ol.steps li small{display:block;color:var(--muted);font-size:.82em}
+blockquote{margin:6px 0 16px;padding:12px 18px;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 12px 12px 0;box-shadow:var(--shadow);font-size:clamp(18px,1.9vw,23px);line-height:1.4}
+blockquote cite{display:block;margin-top:6px;font-style:normal;font-size:14px;color:var(--muted)}
+blockquote.small{font-size:17px;padding:10px 16px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.cols.wide-l{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.cols>*,.cols3>*,.cols4>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px}
+.card p{margin:0 0 6px;font-size:16px}
+.card p:last-child{margin-bottom:0}
+.card ul{margin:0;padding-left:18px;font-size:16px}
+.card li{margin:4px 0}
+.card.good{border-color:var(--good)}.card.good h3{color:var(--good)}
+.card.bad{border-color:var(--bad)}.card.bad h3{color:var(--bad)}
+.card.accent{border-color:var(--accent)}.card.accent h3{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:clamp(15px,1.55vw,18px);background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:.78em;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td small{display:block;color:var(--muted);font-size:.85em}
+pre.code{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;font-size:clamp(12.5px,1.25vw,15px);line-height:1.5;overflow-x:auto;margin:0 0 12px;box-shadow:var(--shadow)}
+.k{color:var(--info)}.s{color:var(--good)}.e{color:var(--bad)}.c{color:var(--muted)}
+.pill{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.p-good{background:var(--good-bg);color:var(--good)}.p-bad{background:var(--bad-bg);color:var(--bad)}
+.p-info{background:var(--info-bg);color:var(--info)}.p-ext{background:var(--ext-bg);color:var(--ext)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}.p-mute{background:var(--surface-2);color:var(--muted)}
+.more{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.more button{border:1px dashed var(--border);background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font-size:14px}
+.more button:hover{border-color:var(--accent);color:var(--accent)}
+.more button:before{content:"+ "}
+.more button.link:before{content:"↗ "}
+.muted{color:var(--muted)}
+.so{margin-top:18px;padding:10px 16px;border-radius:10px;background:var(--accent-soft);font-size:clamp(16px,1.6vw,19px)}
+.so b{color:var(--accent);text-transform:uppercase;font-size:12px;letter-spacing:.06em;margin-right:8px}
+.demo-tag{align-self:flex-start;display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:3px 10px;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:10px}
+
+/* title + agenda */
+.title-slide h1{font-size:clamp(36px,6vw,72px)}
+.ideas{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.ideas div{border-top:2px solid var(--accent);padding-top:8px;font-size:16px;color:var(--muted)}
+.ideas div b{display:block;color:var(--text);font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.agenda{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.agenda button{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;cursor:pointer;display:flex;gap:14px;align-items:flex-start}
+.agenda button:hover{border-color:var(--accent)}
+.agenda .n{font-size:30px;font-weight:700;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
+.agenda .t{display:block;font-weight:700;font-size:18px;margin-bottom:3px}
+.agenda .d{display:block;font-size:15px;color:var(--muted)}
+
+/* section divider */
+.divider .num{font-size:clamp(64px,10vw,120px);font-weight:800;line-height:.9;color:var(--accent);letter-spacing:-.04em;margin-bottom:10px}
+.divider h1{max-width:900px}
+.divider .inpart{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:1100px}
+.divider .inpart div{border-left:3px solid var(--accent);padding:4px 0 4px 12px;font-size:18px}
+.divider .inpart div small{display:block;color:var(--muted);font-size:14px}
+.divider blockquote{margin-top:28px;max-width:900px}
+
+/* history */
+.mrail{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:0 0 14px;position:relative}
+.mrail:before{content:"";position:absolute;left:10%;right:10%;top:6px;height:2px;background:var(--border)}
+.mrail div{position:relative;text-align:center;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mrail i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 4px;background:var(--surface);border:2px solid var(--border)}
+.mrail .past i{border-color:var(--accent)}
+.mrail .on i{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.mrail .on{color:var(--text);font-weight:700}
+.why{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:0 12px 12px 0;padding:10px 16px;margin:0 0 14px;font-size:clamp(16px,1.65vw,19px)}
+.lbl{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-right:8px}
+ul.chg{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+ul.chg li{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+ul.chg li .pill{justify-self:start;margin-top:3px}
+ul.chg li b{font-size:clamp(15px,1.6vw,18px)}
+ul.chg li span.ref{font-size:12px;color:var(--muted);margin-left:6px;white-space:nowrap}
+ul.chg li p{margin:2px 0 0;font-size:clamp(14px,1.45vw,16px);color:var(--muted)}
+.hwline{margin:12px 0 0;font-size:16px;padding:8px 14px;border:1px dashed var(--border);border-radius:10px}
+.hwline b{color:var(--accent)}
+table.path td:first-child{white-space:nowrap}
+table.path td:first-child b{display:block;font-variant-numeric:tabular-nums}
+table.path td.arrow{color:var(--accent);font-weight:700;padding-left:0;padding-right:0}
+.census{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:baseline}
+.census .v{font-size:28px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right}
+.census .d{font-size:15px;color:var(--muted)}
+
+/* demos */
+.demo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.demo-grid>*{min-width:0}
+.prompt{font-size:clamp(17px,1.8vw,21px);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin:0 0 14px}
+.prompt b{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;display:block}
+
+/* error anatomy */
+.anat{display:grid;gap:8px}
+.anat div{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;font-size:16px;align-items:baseline}
+.anat code{justify-self:start}
+
+/* checklist */
+ul.check{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+ul.check li{position:relative;padding:9px 12px 9px 40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:clamp(15px,1.55vw,17px)}
+ul.check li:before{content:"";position:absolute;left:13px;top:12px;width:16px;height:16px;border:2px solid var(--accent);border-radius:4px}
+ul.check li small{display:block;color:var(--muted);font-size:.85em}
+
+/* diagram */
+svg.nm{width:100%;height:auto;max-height:40vh}
+svg.nm .ln{stroke:var(--border);stroke-width:2}
+svg.nm .hub{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+svg.nm .nd{fill:var(--surface);stroke:var(--muted);stroke-width:2}
+svg.nm text{fill:var(--text);font:600 15px -apple-system,BlinkMacSystemFont,sans-serif}
+svg.nm .lbl2{fill:var(--muted);font-weight:400;font-size:14px}
+svg.nm .sm{font-size:13px;font-weight:500}
+svg.nm .bad{fill:var(--bad);font-size:14px}
+svg.nm .good{fill:var(--good);font-size:14px}
+svg.gw{max-height:32vh;margin-bottom:12px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 18px;font-size:clamp(15px,1.7vw,19px)}
+.flow .box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 14px;box-shadow:var(--shadow)}
+.flow .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+.flow .box small{display:block;color:var(--muted);font-size:13px}
+.flow .arr{color:var(--muted)}
+
+/* watch list */
+.talks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.talk{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.talk .tt{font-weight:700;font-size:16px}
+.talk .tt a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border)}
+.talk .tt a:hover{border-color:var(--accent)}
+.talk .who{font-size:13px;color:var(--muted);margin:2px 0 6px}
+.talk .why2{font-size:14px;margin:0 0 8px}
+.talk .mo{display:flex;flex-wrap:wrap;gap:5px}
+.talk .mo a{font-size:12.5px;text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--text)}
+.talk .mo a b{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:4px}
+.talk .mo a:hover{border-color:var(--accent)}
+
+/* bottom bar */
+.bottom{position:fixed;left:0;right:0;bottom:0;height:40px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;font-size:13px;color:var(--muted);border-top:1px solid var(--border);background:var(--bg);z-index:8}
+.bottom .nav{display:flex;gap:6px;align-items:center}
+.counter{font-variant-numeric:tabular-nums;min-width:56px;text-align:center}
+
+/* modal */
+dialog{border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);padding:0;width:min(860px,calc(100vw - 32px));max-height:calc(100vh - 64px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .dh{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+dialog .dh h3{margin:0;font-size:18px;text-transform:none;letter-spacing:0;color:var(--text)}
+dialog .db{padding:16px 20px 22px;font-size:16px;overflow-y:auto}
+dialog .db p{margin:0 0 10px}
+dialog .db ul,dialog .db ol{margin:0 0 10px;padding-left:22px}
+dialog .db li{margin:3px 0}
+dialog .db table{font-size:15px;box-shadow:none;border:1px solid var(--border);margin-bottom:12px}
+dialog .db blockquote{font-size:16px;box-shadow:none;border:1px solid var(--border);border-left:4px solid var(--accent)}
+dialog .db pre.code{font-size:13.5px;box-shadow:none}
+dialog .db h4{margin:16px 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+
+@media (max-width:860px){
+  body{font-size:16px}
+  .cols,.cols.wide-l,.cols3,.cols4,.agenda,.demo-grid,.talks,ul.check{grid-template-columns:minmax(0,1fr)}
+  .top .btn kbd,.bottom .keys{display:none}
+  table{display:block;overflow-x:auto}
+  .hide-sm{display:none}
+  ul.chg li{grid-template-columns:minmax(0,1fr)}
+  .anat div{grid-template-columns:minmax(0,1fr)}
+  .mrail div span{display:none}
+}
+@media (max-height:820px) and (min-width:861px){
+  .top{height:44px}.deck{inset:44px 0 34px 0}.bottom{height:34px}
+  .stage{padding:4px 0}
+  h2{font-size:clamp(22px,2.6vw,30px);margin-bottom:12px}
+  .eyebrow{margin-bottom:4px}
+  .mrail{margin-bottom:8px}
+  .why{padding:7px 14px;margin-bottom:10px;font-size:16px}
+  ul.chg{gap:6px} ul.chg li{padding:6px 12px}
+  ul.chg li b{font-size:16px} ul.chg li p{font-size:14px}
+  .hwline{margin-top:8px;padding:6px 12px;font-size:15px}
+  .so{margin-top:12px;padding:8px 14px;font-size:16px}
+  .more{margin-top:10px}
+  th,td{padding:7px 12px}
+  table{font-size:15px}
+  blockquote{padding:9px 16px;margin-bottom:12px;font-size:19px}
+  blockquote.small{font-size:16px}
+  .big{font-size:20px}
+  ul.points li{padding:4px 0 4px 22px;font-size:18px} ul.points li:before{top:15px}
+  ol.steps li{font-size:17px;padding:4px 0 4px 38px} ol.steps li:before{top:4px}
+  .card{padding:11px 14px}
+  pre.code{padding:9px 13px;font-size:13px}
+  svg.nm{max-height:34vh}
+  svg.gw{max-height:29vh;margin-bottom:8px}
+  .divider .num{font-size:72px}
+  .talk{padding:9px 12px}.talk .why2{margin-bottom:5px}
+}
+@media (max-height:740px) and (min-width:861px){
+  .mrail span{display:none} .mrail{margin-bottom:4px}
+  h2{font-size:24px;margin-bottom:10px}
+  ul.chg li p{font-size:13.5px}
+  .talks{gap:8px} .talk .mo a{padding:1px 8px}
+  .hwline{margin-top:6px;padding:4px 12px} .more{margin-top:6px} svg.gw{max-height:28vh;margin-bottom:6px} ul.chg{gap:4px} ul.chg li{padding:5px 12px}
+}
+@media print{
+  body{overflow:visible}
+  .top,.bottom,.progress{display:none!important}
+  .deck{position:static}
+  .slide{position:relative;display:block!important;page-break-after:always;height:auto}
+}
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="top">
+  <nav class="tracker" id="tracker" aria-label="Lecture parts"></nav>
+  <div class="controls">
+    <a class="btn hide-sm" href="mcp-spec-lifecycle-en.html" target="_blank" rel="noopener">Spec history ↗</a>
+    <button class="btn" id="themeBtn" title="Light / dark theme">Theme<kbd>T</kbd></button>
+  </div>
+</header>
+
+<main class="deck" id="deck">
+
+<!-- ============ OPENING ============ -->
+
+<section class="slide title-slide" data-part="0">
+  <div class="stage">
+    <p class="eyebrow">AIDev L2 · Module 1 · Model Context Protocol</p>
+    <h1>Advanced MCP:<br>designing a server for an agent</h1>
+    <p class="lead">One running example all the way through: smart-support, a ticket system where an agent answers and escalates customer requests.</p>
+    <div class="ideas">
+      <div><b>Idea 1</b>An MCP server is a user interface for an agent, not a wrapper around a REST API.</div>
+      <div><b>Idea 2</b>Tool descriptions and error messages are prompts. They steer the agent.</div>
+      <div><b>Idea 3</b>The guarantee lives in server code. A forbidden transition can't happen, whatever the agent asks.</div>
+      <div><b>Idea 4</b>The protocol changed a lot in 2026. Check anything written before 28 July 2026.</div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="0">
+  <div class="stage">
+    <p class="eyebrow">Agenda</p>
+    <h2>Five parts: from what MCP is to a server you can hand in</h2>
+    <div class="agenda">
+      <button data-goto="1"><span class="n">1</span><span><span class="t">What MCP is</span><span class="d">The problem it solves, who does what, when you don't need it.</span></span></button>
+      <button data-goto="2"><span class="n">2</span><span><span class="t">How the spec evolved</span><span class="d">Five revisions in twenty months, and the reason behind each.</span></span></button>
+      <button data-goto="3"><span class="n">3</span><span><span class="t">Designing for an agent</span><span class="d">Five rules on smart-support. Demo: a bad error vs a good one.</span></span></button>
+      <button data-goto="4"><span class="n">4</span><span><span class="t">The homework scenario, live</span><span class="d">The protocol in Inspector, then an agent in Claude Code.</span></span></button>
+      <button data-goto="5"><span class="n">5</span><span><span class="t">Shipping it</span><span class="d">Which SDK, the security minimum, gateways and the registry.</span></span></button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ PART 1 · What MCP is ============ -->
+
+<section class="slide divider" data-part="1" data-label="What MCP is">
+  <div class="stage">
+    <div class="num">01</div>
+    <h1>What MCP is and why it exists</h1>
+    <div class="inpart">
+      <div>The problem MCP solves<small>N apps × M tools of custom glue</small></div>
+      <div>Who does what<small>host, client, server, three primitives</small></div>
+      <div>When it's the right tool<small>and when plain code is better</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · The problem</p>
+    <h2>Without a shared protocol, every AI app needs its own glue for every tool</h2>
+    <div class="cols wide-l">
+      <svg class="nm" viewBox="0 0 900 300" role="img" aria-label="Left: every app wired to every tool. Right: every app and every tool connected through MCP.">
+        <g>
+          <text x="20" y="22" class="lbl2">Without a protocol: N × M integrations</text>
+          <line class="ln" x1="70" y1="70" x2="330" y2="60"/><line class="ln" x1="70" y1="70" x2="330" y2="130"/><line class="ln" x1="70" y1="70" x2="330" y2="200"/><line class="ln" x1="70" y1="70" x2="330" y2="270"/>
+          <line class="ln" x1="70" y1="165" x2="330" y2="60"/><line class="ln" x1="70" y1="165" x2="330" y2="130"/><line class="ln" x1="70" y1="165" x2="330" y2="200"/><line class="ln" x1="70" y1="165" x2="330" y2="270"/>
+          <line class="ln" x1="70" y1="260" x2="330" y2="60"/><line class="ln" x1="70" y1="260" x2="330" y2="130"/><line class="ln" x1="70" y1="260" x2="330" y2="200"/><line class="ln" x1="70" y1="260" x2="330" y2="270"/>
+          <circle class="nd" cx="70" cy="70" r="20"/><circle class="nd" cx="70" cy="165" r="20"/><circle class="nd" cx="70" cy="260" r="20"/>
+          <rect class="nd" x="318" y="48" width="24" height="24" rx="5"/><rect class="nd" x="318" y="118" width="24" height="24" rx="5"/><rect class="nd" x="318" y="188" width="24" height="24" rx="5"/><rect class="nd" x="318" y="258" width="24" height="24" rx="5"/>
+        </g>
+        <g transform="translate(500,0)">
+          <text x="20" y="22" class="lbl2">With MCP: N + M</text>
+          <line class="ln" x1="70" y1="70" x2="170" y2="165"/><line class="ln" x1="70" y1="165" x2="170" y2="165"/><line class="ln" x1="70" y1="260" x2="170" y2="165"/>
+          <line class="ln" x1="230" y1="165" x2="330" y2="60"/><line class="ln" x1="230" y1="165" x2="330" y2="130"/><line class="ln" x1="230" y1="165" x2="330" y2="200"/><line class="ln" x1="230" y1="165" x2="330" y2="270"/>
+          <circle class="nd" cx="70" cy="70" r="20"/><circle class="nd" cx="70" cy="165" r="20"/><circle class="nd" cx="70" cy="260" r="20"/>
+          <rect class="hub" x="160" y="140" width="80" height="50" rx="10"/><text x="200" y="171" text-anchor="middle">MCP</text>
+          <rect class="nd" x="318" y="48" width="24" height="24" rx="5"/><rect class="nd" x="318" y="118" width="24" height="24" rx="5"/><rect class="nd" x="318" y="188" width="24" height="24" rx="5"/><rect class="nd" x="318" y="258" width="24" height="24" rx="5"/>
+        </g>
+      </svg>
+      <div>
+        <h3>A move developers have seen before</h3>
+        <table>
+          <tr><th>Standard</th><th>Connects</th></tr>
+          <tr><td>REST APIs</td><td>web app ↔ backend</td></tr>
+          <tr><td>LSP</td><td>editor ↔ language tooling</td></tr>
+          <tr><td><b>MCP</b></td><td><b>AI app ↔ external systems</b></td></tr>
+        </table>
+        <p class="muted" style="margin-top:10px;font-size:15px">Each one replaced one-off integrations with a single shared protocol.</p>
+      </div>
+    </div>
+    <div class="so"><b>In practice</b>Write the server once, and Claude Code, Cursor and your own agent can all use it.</div>
+    <div class="more"><button data-detail="d-adoption">How widely it's used</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · Who does what</p>
+    <h2>Three roles, and three primitives controlled by three different parties</h2>
+    <div class="flow">
+      <div class="box">Host<small>Claude Code, Cursor, your agent</small></div><span class="arr">→</span>
+      <div class="box">Client<small>one per server, inside the host</small></div><span class="arr">→</span>
+      <div class="box hl">Server<small>support-tickets: what you build</small></div><span class="arr">→</span>
+      <div class="box">SQLite<small>tickets, agent_trace</small></div>
+    </div>
+    <table>
+      <thead><tr><th>Primitive</th><th>Who decides when it's used</th><th>In smart-support</th></tr></thead>
+      <tbody>
+        <tr><td><b>Tool</b></td><td>the model</td><td><code>get_ticket</code>, <code>list_tickets</code>, <code>update_ticket</code></td></tr>
+        <tr><td><b>Resource</b></td><td>the application</td><td><code>support://status-graph</code></td></tr>
+        <tr><td><b>Prompt</b></td><td>the user</td><td class="muted">not used</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:14px">Two transports: <b>stdio</b>, a local process (the IDE check in the homework), and <b>Streamable HTTP</b>, a network service (supergateway in the homework).</p>
+    <p class="hwline"><b>Homework:</b> tools the model calls, plus at least one resource the application reads without a model turn.</p>
+  </div>
+</section>
+
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · When to use it</p>
+    <h2>MCP is one way to connect an agent to a system, not the only one</h2>
+    <div class="cols">
+      <div class="card good"><h3>MCP pays off when</h3>
+        <ul>
+          <li>the model decides which tools to call, and when;</li>
+          <li>one server has several consumers: Claude Code, Cursor, an n8n agent;</li>
+          <li>you want one place for the contract and the access rules.</li>
+        </ul></div>
+      <div class="card bad"><h3>You may not need it when</h3>
+        <ul>
+          <li>the steps are fixed: call the API from code;</li>
+          <li>the agent loop and the API are both yours, with one consumer;</li>
+          <li>a skill or a CLI already does the job.</li>
+        </ul></div>
+    </div>
+    <blockquote class="small" style="margin-top:16px">If it's predetermined, then you probably don't need to use a tool.<cite>Mahesh Murag, Anthropic · “Building Agents with Model Context Protocol”, 2025</cite></blockquote>
+    <div class="more"><button data-detail="d-compose">MCP, skills, CLI and agent frameworks</button></div>
+  </div>
+</section>
+
+<!-- ============ PART 2 · How the spec evolved ============ -->
+
+<section class="slide divider" data-part="2" data-label="Spec history">
+  <div class="stage">
+    <div class="num">02</div>
+    <h1>How the spec evolved, and why</h1>
+    <div class="inpart">
+      <div>Five revisions in twenty months<small>the problem behind each one</small></div>
+      <div>What was added, changed, removed<small>with the authors' reasons</small></div>
+      <div>What 2026-07-28 means for you<small>and why old tutorials mislead</small></div>
+    </div>
+    <blockquote class="small">Over a year ago, 18 months… There was just a little spec document, a few SDKs, mostly written by Claude, local only with little more than just tools.<cite>David Soria Parra, Anthropic · “The Future of MCP”, 2026</cite></blockquote>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · The whole path</p>
+    <h2>Each revision fixed a problem the previous one exposed</h2>
+    <table class="path">
+      <thead><tr><th>Revision</th><th>The problem</th><th></th><th>The answer</th></tr></thead>
+      <tbody>
+        <tr><td><b>2024-11-05</b><span class="muted">Launch</span></td><td>Every AI app needed its own integration for every tool.</td><td class="arrow">→</td><td>One open protocol; local servers over stdio.</td></tr>
+        <tr><td><b>2025-03-26</b><span class="muted">Going remote</span></td><td>Servers moved to the network: a fragile connection and no auth.</td><td class="arrow">→</td><td>Streamable HTTP, OAuth 2.1, tool annotations.</td></tr>
+        <tr><td><b>2025-06-18</b><span class="muted">Growing up</span></td><td>Free-text results, no way to ask the user, tokens one server could reuse at another.</td><td class="arrow">→</td><td>Structured output, elicitation, tokens bound to one server.</td></tr>
+        <tr><td><b>2025-11-25</b><span class="muted">One year</span></td><td>Lost long calls, errors the model never saw, servers storing every client.</td><td class="arrow">→</td><td>Tasks, errors as tool results, registration by URL.</td></tr>
+        <tr><td><b>2026-07-28</b><span class="muted">Stateless · current</span></td><td>Sessions tied each client to one server instance.</td><td class="arrow">→</td><td>A stateless core, MRTR, a deprecation policy.</td></tr>
+      </tbody>
+    </table>
+    <div class="more"><button class="link" data-open="mcp-spec-lifecycle-en.html">The full history, with every reason</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <div class="mrail"><div class="on"><i></i><span>2024-11-05</span></div><div><i></i><span>2025-03-26</span></div><div><i></i><span>2025-06-18</span></div><div><i></i><span>2025-11-25</span></div><div><i></i><span>2026-07-28</span></div></div>
+    <p class="eyebrow">Revision 1 of 5 · 2024-11-05 · Launch</p>
+    <h2>It starts local: one protocol, servers on your own machine</h2>
+    <div class="why"><span class="lbl">Why</span>Every AI app needed its own integration for every tool.</div>
+    <ul class="chg">
+      <li><span class="pill p-good">added</span><div><b>stdio transport</b><p>The app launches the server as a local process. Still the default for local servers.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>Tools, resources, prompts</b><p>Three primitives with three owners: the model, the application, the user.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>A stateful connection with an <code>initialize</code> handshake</b><p>Both sides agree once on a version and features. Removed in 2026.</p></div></li>
+      <li><span class="pill p-mute">not yet</span><div><b>Authorization</b><p>Servers ran on the user's machine; nobody to keep out. OAuth came next.</p></div></li>
+    </ul>
+    <p class="hwline"><b>Homework:</b> the starter server follows this model: stdio, tools and resources.</p>
+    <div class="more"><button data-detail="d-r1">More on this revision</button><button class="link" data-open="mcp-spec-lifecycle-en.html#2024-11-05">Every change in 2024-11-05</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <div class="mrail"><div class="past"><i></i><span>2024-11-05</span></div><div class="on"><i></i><span>2025-03-26</span></div><div><i></i><span>2025-06-18</span></div><div><i></i><span>2025-11-25</span></div><div><i></i><span>2026-07-28</span></div></div>
+    <p class="eyebrow">Revision 2 of 5 · 2025-03-26 · Going remote</p>
+    <h2>Servers move to the network, so the protocol needs real HTTP and auth</h2>
+    <div class="why"><span class="lbl">Why</span>The first remote transport, HTTP+SSE, needed an always-on connection that couldn't resume after a drop. And anyone could call a remote server.</div>
+    <ul class="chg">
+      <li><span class="pill p-good">added</span><div><b>Streamable HTTP</b><span class="ref">PR #206</span><p>One endpoint, plain POST requests, streaming only when needed. Replaces HTTP+SSE.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>OAuth 2.1 authorization</b><span class="ref">PR #133</span><p>A server on the network has to know who is calling.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>Tool annotations: <code>readOnlyHint</code>, <code>destructiveHint</code>, …</b><span class="ref">PR #185</span><p>Let a client ask before a destructive call. Hints, not guarantees.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>JSON-RPC batching</b><span class="ref">PR #228</span><p>Allowed by JSON-RPC 2.0. It lasted three months.</p></div></li>
+    </ul>
+    <p class="hwline"><b>Homework:</b> the advanced level, Streamable HTTP with a bearer token, comes from here. Good practice, not a requirement: mark <code>get_*</code> and <code>list_*</code> tools read-only.</p>
+    <div class="more"><button data-detail="d-r2">In the authors' words</button><button class="link" data-open="mcp-spec-lifecycle-en.html#2025-03-26">Every change in 2025-03-26</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <div class="mrail"><div class="past"><i></i><span>2024-11-05</span></div><div class="past"><i></i><span>2025-03-26</span></div><div class="on"><i></i><span>2025-06-18</span></div><div><i></i><span>2025-11-25</span></div><div><i></i><span>2026-07-28</span></div></div>
+    <p class="eyebrow">Revision 3 of 5 · 2025-06-18 · Growing up</p>
+    <h2>Contracts get stricter: typed results, questions to the user, safer tokens</h2>
+    <div class="why"><span class="lbl">Why</span>Tools returned free text, servers couldn't ask the user anything, and a malicious server could get hold of a token meant for another one.</div>
+    <ul class="chg">
+      <li><span class="pill p-good">added</span><div><b>Structured tool output</b><span class="ref">PR #371</span><p><code>outputSchema</code> + <code>structuredContent</code>: results the client can validate.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>Elicitation</b><span class="ref">PR #382</span><p>The server asks the user for missing input mid-call.</p></div></li>
+      <li><span class="pill p-info">changed</span><div><b>Tokens bound to one server (RFC 8707)</b><span class="ref">PR #338, #734</span><p>Servers check tokens, they don't issue them; each token names the server it's for.</p></div></li>
+      <li><span class="pill p-bad">removed</span><div><b>JSON-RPC batching</b><span class="ref">PR #416</span><p>The author saw no compelling use cases. Gone after three months, with no warning.</p></div></li>
+    </ul>
+    <p class="hwline"><b>Homework:</b> your error payload follows the same idea: fixed fields the model can rely on, not a sentence to parse.</p>
+    <div class="more"><button data-detail="d-r3">In the authors' words</button><button class="link" data-open="mcp-spec-lifecycle-en.html#2025-06-18">Every change in 2025-06-18</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <div class="mrail"><div class="past"><i></i><span>2024-11-05</span></div><div class="past"><i></i><span>2025-03-26</span></div><div class="past"><i></i><span>2025-06-18</span></div><div class="on"><i></i><span>2025-11-25</span></div><div><i></i><span>2026-07-28</span></div></div>
+    <p class="eyebrow">Revision 4 of 5 · 2025-11-25 · One year of MCP</p>
+    <h2>A year in: errors the model can read, long-running work, registration by URL</h2>
+    <div class="why"><span class="lbl">Why</span>Long tool calls could vanish without a trace, models never saw why their arguments were rejected, and every server kept a growing database of clients.</div>
+    <ul class="chg">
+      <li><span class="pill p-info">changed</span><div><b>Invalid input is a tool error, not a protocol error</b><span class="ref">SEP-1303</span><p>A tool result with <code>isError</code> reaches the model, so it can fix its call.</p></div></li>
+      <li><span class="pill p-ext">experimental</span><div><b>Tasks</b><span class="ref">SEP-1686</span><p>Start long work now, fetch the result later.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>Client ID Metadata Documents</b><span class="ref">SEP-991</span><p>An HTTPS URL is the client ID: no registration database.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>URL mode elicitation</b><span class="ref">SEP-1036</span><p>Secrets go into a web page, never through the client or the model.</p></div></li>
+    </ul>
+    <p class="hwline"><b>Homework:</b> a forbidden status change must list the allowed transitions; return it as a tool result with <code>isError</code>, the same idea as SEP-1303.</p>
+    <div class="more"><button data-detail="d-r4">In the authors' words</button><button class="link" data-open="mcp-spec-lifecycle-en.html#2025-11-25">Every change in 2025-11-25</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <div class="mrail"><div class="past"><i></i><span>2024-11-05</span></div><div class="past"><i></i><span>2025-03-26</span></div><div class="past"><i></i><span>2025-06-18</span></div><div class="past"><i></i><span>2025-11-25</span></div><div class="on"><i></i><span>2026-07-28</span></div></div>
+    <p class="eyebrow">Revision 5 of 5 · 2026-07-28 · Stateless · current</p>
+    <h2>Stateless: every request carries everything it needs</h2>
+    <div class="why"><span class="lbl">Why</span>Sessions tied each client to one server instance: sticky routing, per-client cleanup, lists you couldn't cache.</div>
+    <ul class="chg">
+      <li><span class="pill p-bad">removed</span><div><b>Sessions, the handshake, <code>ping</code>, SSE resumability</b><span class="ref">SEP-2567, 2575</span><p>Any instance behind a plain load balancer can serve any request.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>MRTR: Multi Round-Trip Requests</b><span class="ref">SEP-2322</span><p>The server answers <code>input_required</code>; the client retries the call with the answers.</p></div></li>
+      <li><span class="pill p-warn">deprecated</span><div><b>Sampling, roots, protocol-level logging</b><span class="ref">SEP-2577</span><p>Sampling and roots: few clients implemented them. Logging duplicates stderr and OpenTelemetry.</p></div></li>
+      <li><span class="pill p-ext">extension</span><div><b>Tasks move out of the core (Beta)</b><span class="ref">SEP-2663</span><p>The first design leaned on sessions; Tasks were reworked as an official extension.</p></div></li>
+      <li><span class="pill p-good">added</span><div><b>A deprecation policy</b><span class="ref">SEP-2596</span><p>Normally at least twelve months' notice before a feature goes. Batching vanishing in one release is one of the cases it cites.</p></div></li>
+    </ul>
+    <p class="hwline"><b>Homework:</b> keep ticket state in the database, not in the server process.</p>
+    <div class="more"><button data-detail="d-r5">In the authors' words</button><button class="link" data-open="mcp-spec-lifecycle-en.html#2026-07-28">Every change in 2026-07-28</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · So what</p>
+    <h2>What revision 2026-07-28 means for the server you're about to write</h2>
+    <div class="cols wide-l">
+      <table>
+        <thead><tr><th>What changed</th><th>What you do</th></tr></thead>
+        <tbody>
+          <tr><td>No sessions</td><td>Keep state in the database or behind an explicit handle.</td></tr>
+          <tr><td>Logging deprecated</td><td>Log to stderr or OpenTelemetry. On stdio, stdout is the protocol channel.</td></tr>
+          <tr><td>Elicitation now uses MRTR</td><td>Not deprecated, and not needed for the homework.</td></tr>
+          <tr><td>Validation errors are tool results</td><td>Return them with <code>isError: true</code>.</td></tr>
+        </tbody>
+      </table>
+      <div class="card">
+        <h3>The ecosystem is catching up</h3>
+        <p class="muted">An independent census (RoninForge) checked every reachable server in the official MCP Registry against four things the new revision requires.</p>
+        <div class="census">
+          <div class="v">0</div><div class="d">of 4,937 passed all four on 22 Jul 2026</div>
+          <div class="v">31</div><div class="d">of 11,929 passed by 13 Sep 2026</div>
+        </div>
+      </div>
+    </div>
+    <div class="so"><b>In practice</b>Most servers and tutorials online still use the old protocol. Check the date before you copy code.</div>
+    <div class="more"><button data-detail="d-mrtr">How MRTR works</button><button data-detail="d-census">About the census</button><button class="link" data-open="mcp-spec-lifecycle-en.html#today">Where things stand today</button></div>
+  </div>
+</section>
+
+<!-- ============ PART 3 · Designing for an agent ============ -->
+
+<section class="slide divider" data-part="3" data-label="Designing for an agent">
+  <div class="stage">
+    <div class="num">03</div>
+    <h1>Designing a server for an agent</h1>
+    <div class="inpart">
+      <div>Why so many servers are bad<small>and what an agent pays for</small></div>
+      <div>Five rules<small>each shown on smart-support</small></div>
+      <div>Demo 1<small>a bad error vs a good error</small></div>
+      <div>A checklist<small>for your homework server</small></div>
+    </div>
+    <blockquote class="small">You are not building a tool, you are building a user interface.<cite>Jeremiah Lowin, Prefect · “Your MCP Server is Bad”, 2025</cite></blockquote>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · The diagnosis</p>
+    <h2>Most bad MCP servers are a REST API with a new label</h2>
+    <blockquote>Humans don't use APIs. Humans use products.<cite>Jeremiah Lowin, Prefect · “Your MCP Server is Bad”, 2025</cite></blockquote>
+    <p class="big">A REST API is built for a developer who reads the docs once and writes a script. An agent rediscovers your server on every connection and decides each step on the fly.</p>
+    <blockquote class="small">We all need to stop taking REST APIs and put them one-to-one into an MCP server.<cite>David Soria Parra, Anthropic · “The Future of MCP”, 2026</cite></blockquote>
+    <div class="so"><b>In practice</b>Design tools around what the agent needs to get done, not one tool per endpoint.</div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Why it matters</p>
+    <h2>An agent pays for every tool, every turn and every token</h2>
+    <table>
+      <thead><tr><th></th><th>A developer with a REST API</th><th>An agent with MCP</th></tr></thead>
+      <tbody>
+        <tr><td><b>Discovery</b></td><td>reads the docs once</td><td>reads every description on every connection, in tokens</td></tr>
+        <tr><td><b>Iteration</b></td><td>a script calls known routes</td><td>each call is a model turn; the history is read again</td></tr>
+        <tr><td><b>Context</b></td><td>remembers what it learned</td><td>a finite window that tool descriptions fill up</td></tr>
+      </tbody>
+    </table>
+    <blockquote class="small" style="margin-top:18px">An agent can find a needle in a haystack. The problem is it's going to look at every piece of hay and decide if it's a needle.<cite>Jeremiah Lowin, Prefect · “Your MCP Server is Bad”, 2025</cite></blockquote>
+    <div class="so"><b>In practice</b>Fewer tools, each doing more, each described well. The next five slides show how.</div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Rule 1 of 5</p>
+    <h2>Expose outcomes, not operations</h2>
+    <div class="cols">
+      <div class="card bad"><h3>Operations: three tools, three turns</h3>
+<pre class="code">get_user(email)        <span class="c">→ user_id</span>
+get_orders(user_id)    <span class="c">→ [order_id, …]</span>
+check_status(order_id) <span class="c">→ status</span></pre>
+        <p>The agent guesses the order and carries IDs between calls.</p></div>
+      <div class="card good"><h3>Outcome: one tool, one turn</h3>
+<pre class="code">track_latest_order(email)
+  <span class="c">→ {order_id, status, eta}</span></pre>
+        <p>The same three API calls, inside the tool, in code.</p></div>
+    </div>
+    <p class="muted" style="margin-top:14px">In smart-support, three tools cover the whole ticket lifecycle: <code>list_tickets</code>, <code>get_ticket</code>, <code>update_ticket</code>. Not one tool per field or per status.</p>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Rule 2 of 5</p>
+    <h2>Make names, arguments and examples hard to misread</h2>
+    <table>
+      <thead><tr><th></th><th>Do</th><th>Don't</th><th>Why</th></tr></thead>
+      <tbody>
+        <tr><td><b>Names</b></td><td>verb + object: <code>update_ticket</code></td><td><code>run</code></td><td>The model matches requests against names first.</td></tr>
+        <tr><td><b>Arguments</b></td><td>flat, with enums and defaults</td><td><code>config: dict</code></td><td>Fewer free-form fields, fewer wrong guesses.</td></tr>
+        <tr><td><b>Examples</b></td><td>realistic and varied</td><td>one narrow example</td><td>The model copies examples literally.</td></tr>
+      </tbody>
+    </table>
+    <div class="cols" style="margin-top:16px">
+      <blockquote class="small">If your example has two tags, you will never get 10 tags. You will get two tags pretty much every time.<cite>Jeremiah Lowin, Prefect · “Your MCP Server is Bad”, 2025</cite></blockquote>
+      <div class="card accent"><h3>It happened to us</h3><p>The agent passed <code>agent="operator"</code> on every call, because that's what the example in the <code>update_ticket</code> description said.</p></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Rule 3 of 5</p>
+    <h2>A tool description is a prompt: write it like one</h2>
+    <div class="cols">
+      <div>
+        <ol class="steps">
+          <li>What it does</li>
+          <li>When to call it<small>and what to call first</small></li>
+          <li>When <b>not</b> to call it<small>as a redirect, not a bare “don't”</small></li>
+          <li>Input and output<small>including what a rejection looks like</small></li>
+          <li>An example</li>
+        </ol>
+      </div>
+<pre class="code"><span class="c"># update_ticket, excerpt</span>
+Allowed status transitions (the server
+enforces them, you cannot bypass them):
+  new -&gt; answered, new -&gt; escalated,
+  answered -&gt; escalated.
+  'escalated' is final.
+
+When NOT to call: to read data
+(use get_ticket or list_tickets);
+when the ticket is already 'escalated'
+(nothing can change it, report that
+and stop).</pre>
+    </div>
+    <div class="so"><b>In practice</b>Every “when not to call” line also says what to do instead.</div>
+    <div class="more"><button data-detail="d-desc">The full update_ticket description</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Rule 4 of 5</p>
+    <h2>Errors are prompts too: say what's wrong and what to do next</h2>
+    <div class="cols">
+      <div>
+        <p class="muted">A bare <code>ValueError</code> tells the model nothing. A good error has four fields the model acts on:</p>
+        <div class="anat">
+          <div><code>code</code><span>a stable name to match on</span></div>
+          <div><code>current_status</code><span>where the ticket is now</span></div>
+          <div><code>allowed_transitions</code><span>what is possible from here</span></div>
+          <div><code>hint</code><span>what to do next, in plain words</span></div>
+        </div>
+      </div>
+<pre class="code">{
+  <span class="k">"ok"</span>: false,
+  <span class="k">"error"</span>: {
+    <span class="k">"code"</span>: <span class="e">"INVALID_STATUS_TRANSITION"</span>,
+    <span class="k">"message"</span>: <span class="s">"cannot move ticket 5 from
+      'answered' to 'new'"</span>,
+    <span class="k">"hint"</span>: <span class="s">"Ticket 5 is 'answered'. Retry
+      update_ticket with new_status in
+      ['escalated'], or stop if none fits."</span>,
+    <span class="k">"current_status"</span>: <span class="s">"answered"</span>,
+    <span class="k">"allowed_transitions"</span>: [<span class="s">"escalated"</span>]
+  }
+}</pre>
+    </div>
+    <div class="so"><b>In practice</b>The error helps the agent recover. The code still blocks the forbidden change.</div>
+    <div class="more"><button data-detail="d-sep1303">Why a tool result, not a protocol error</button><button data-detail="d-trigger">The second line of defense</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <span class="demo-tag">DEMO 1 · A/B</span>
+    <h2>A good error lets the agent fix itself</h2>
+    <div class="prompt"><b>Same request to both servers</b>“Ticket 12 was answered by mistake. Use the support-tickets server to move it back to new.”</div>
+    <div class="demo-grid">
+      <div class="card"><h3>Setup</h3>
+        <p>Two copies of one server, with the status graph removed from descriptions, instructions and resources. Only the error differs.</p>
+        <p><b>A</b> answers every rejection with <code>{"error": "Invalid transition"}</code>.</p>
+        <p><b>B</b> answers with the error from the previous slide.</p></div>
+      <div class="card"><h3>Watch for</h3>
+        <ul>
+          <li>what each agent tells you after the rejection;</li>
+          <li>whether it finds the one allowed move or gives up.</li>
+        </ul></div>
+      <div class="card accent"><h3>What it proves</h3>
+        <p>Both servers knew why they refused. Only B said so, and only B's agent could act on it.</p></div>
+    </div>
+    <div class="more"><button data-detail="d-demo1">What exactly differs between A and B</button><button data-detail="d-demo1-check">What the server recorded</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Rule 5 of 5</p>
+    <h2>Keep the tool count low: the limit is per agent, not per server</h2>
+    <ul class="points">
+      <li>Lowin's rule of thumb: 5–15 tools. Around 50 per agent is where it starts to hurt.<small>A heuristic from practice, not a measurement.</small></li>
+      <li>An agent connected to two servers with 50 tools each sees 100.</li>
+      <li>A Fivetran engineer cut his own MCP server from 188 tools to 5.<small>Kelly Kohlleffel, as told by Lowin, Nov 2025.</small></li>
+      <li>Clients help: Tool Search loads descriptions on demand, 56,000+ tokens down to about 9,000.<small>David Soria Parra, Anthropic · slide in “The Future of MCP”, 2026. It helps, but it won't save a server with 188 tools.</small></li>
+      <li>Code execution: the agent writes a script that calls the tools, and only the result reaches the model. 150,000 tokens down to 2,000 in Anthropic's example.<small>Anthropic, “Code execution with MCP”, Nov 2025; Cloudflare calls it Code Mode. A client-side pattern: your server still needs good tools.</small></li>
+    </ul>
+    <div class="more"><button data-detail="d-codemode">How code execution works</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Recap</p>
+    <h2>Checklist: is your homework server designed for an agent?</h2>
+    <ul class="check">
+      <li>Each tool is an outcome, not an endpoint<small>Rule 1</small></li>
+      <li>Verb + object names; flat arguments with enums<small>Rule 2</small></li>
+      <li>Descriptions: what, when, when not, in/out, example<small>Rule 3</small></li>
+      <li>Rejections come back as tool results with <code>isError</code><small>Rule 4 · SEP-1303</small></li>
+      <li>Errors carry a code, the state, next steps and a hint<small>Rule 4</small></li>
+      <li>Forbidden transitions are blocked in code (and, in smart-support, in the DB)<small>the guarantee</small></li>
+      <li>At least one resource<small>homework requirement</small></li>
+      <li>Read-only tools carry <code>readOnlyHint</code><small>recommended · revision 2025-03-26</small></li>
+    </ul>
+  </div>
+</section>
+
+<!-- ============ PART 4 · The homework scenario, live ============ -->
+
+<section class="slide divider" data-part="4" data-label="Live demo">
+  <div class="stage">
+    <div class="num">04</div>
+    <h1>The homework scenario, live</h1>
+    <div class="inpart">
+      <div>Demo 2 · Inspector<small>the contract as the model sees it</small></div>
+      <div>Demo 3 · Claude Code<small>an agent with no hints follows the lifecycle</small></div>
+      <div>How we check a run<small>by the database, not the agent's summary</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="4">
+  <div class="stage">
+    <p class="eyebrow">Part 4 · The scenario</p>
+    <h2>One success, one rejection, one terminal ticket</h2>
+    <table>
+      <thead><tr><th>Case</th><th>Request</th><th>What the server does</th></tr></thead>
+      <tbody>
+        <tr><td><span class="pill p-good">success</span></td><td>answer ticket 5 (<code>new</code>)</td><td><code>new → answered</code>, <code>ok: true</code></td></tr>
+        <tr><td><span class="pill p-bad">rejection</span></td><td>move ticket 5 back to <code>new</code></td><td><code>INVALID_STATUS_TRANSITION</code>, allowed: <code>escalated</code></td></tr>
+        <tr><td><span class="pill p-info">terminal</span></td><td>change ticket 16 (<code>escalated</code>)</td><td>allowed: <code>[]</code>, hint “Do not retry”</td></tr>
+      </tbody>
+    </table>
+    <div class="cols" style="margin-top:16px">
+      <div class="card"><h3>Two views of one server</h3><p>Inspector shows the protocol. Claude Code shows what an agent does with it.</p></div>
+      <div class="card accent"><h3>How we judge a run</h3><p>The expected outcome is written down first, then compared with the <code>agent_trace</code> table, not with the agent's own summary.</p></div>
+    </div>
+    <p class="hwline"><b>Homework:</b> you run the same two checks on your own server: Inspector, then one success and one rejection from the IDE.</p>
+  </div>
+</section>
+
+<section class="slide" data-part="4">
+  <div class="stage">
+    <span class="demo-tag">DEMO 2 · INSPECTOR</span>
+    <h2>Inspector shows the contract the model gets, and the server's refusal</h2>
+    <div class="demo-grid">
+      <div class="card"><h3>Steps</h3>
+        <ol class="steps">
+          <li>The three tools and the resource</li>
+          <li>The <code>update_ticket</code> description</li>
+          <li>Ticket 16 → <code>answered</code></li>
+        </ol></div>
+      <div class="card"><h3>Watch for</h3>
+        <ul>
+          <li><code>isError: true</code>: a result, not a crash;</li>
+          <li><code>allowed_transitions: []</code>;</li>
+          <li>the hint “Do not retry”.</li>
+        </ul></div>
+      <div class="card accent"><h3>What it proves</h3>
+        <p>The server refuses, whoever asks and however they phrase it: Idea 3.</p>
+        <p>Homework check 1.</p></div>
+    </div>
+    <div class="more"><button data-detail="d-demo2">Command and full response</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="4">
+  <div class="stage">
+    <span class="demo-tag">DEMO 3 · CLAUDE CODE</span>
+    <h2>An agent with no hints follows the lifecycle and recovers from a rejection</h2>
+    <div class="demo-grid">
+      <div class="card"><h3>Steps</h3>
+        <ol class="steps">
+          <li>Find the waiting tickets, then answer ticket 5</li>
+          <li>Ask for update_ticket to move ticket 5 back to new</li>
+          <li>A reply on terminal ticket 16</li>
+        </ol></div>
+      <div class="card"><h3>Watch for</h3>
+        <ul>
+          <li>it reads before it writes;</li>
+          <li>after a rejection it picks an allowed move instead of repeating itself;</li>
+          <li>on ticket 16 it explains why nothing can change, without trying.</li>
+        </ul></div>
+      <div class="card accent"><h3>What it proves</h3>
+        <p>The description and the errors steer the agent; the code holds the line: Ideas 2 and 3.</p>
+        <p>Homework check 2.</p></div>
+    </div>
+    <div class="more"><button data-detail="d-prompts">The prompts</button><button data-detail="d-trace">Checking the run in agent_trace</button></div>
+  </div>
+</section>
+
+<!-- ============ PART 5 · Shipping it ============ -->
+
+<section class="slide divider" data-part="5" data-label="Shipping it">
+  <div class="stage">
+    <div class="num">05</div>
+    <h1>Shipping it: SDK, security, gateways</h1>
+    <div class="inpart">
+      <div>Which SDK to install<small>and the traps everyone hits</small></div>
+      <div>The security minimum<small>what the homework expects</small></div>
+      <div>Gateways and the registry<small>when you have many servers</small></div>
+    </div>
+  </div>
+</section>
+
+<section class="slide" data-part="5">
+  <div class="stage">
+    <p class="eyebrow">Part 5 · SDK</p>
+    <h2>Use the official 2.x SDK, and don't mix it with fastmcp</h2>
+    <table>
+      <thead><tr><th>Language</th><th>Install</th><th>The trap</th></tr></thead>
+      <tbody>
+        <tr><td>Python</td><td><code>mcp</code> 2.x</td><td><code>fastmcp</code> is a separate package. Mixing imports is mistake #1.</td></tr>
+        <tr><td>TypeScript</td><td><code>@modelcontextprotocol/server</code> 2.x</td><td><code>@modelcontextprotocol/sdk</code> is the old v1 line.</td></tr>
+      </tbody>
+    </table>
+    <div class="cols3" style="margin-top:16px">
+      <div class="card"><h3>Old recipes</h3><p><code>mcp.server.fastmcp</code> is 1.x. In 2.x: <code>from mcp.server import MCPServer</code>.</p></div>
+      <div class="card"><h3>stdout is sacred</h3><p>On stdio, one stray <code>print()</code> breaks the protocol. Log to stderr.</p></div>
+      <div class="card"><h3>Inspector 2.12.0+</h3><p>Use 2.12.0 or later: older versions have remote code execution flaws.</p></div>
+    </div>
+    <p class="hwline"><b>Homework:</b> start from <code>course/M1/starter-server/</code> and run <code>selfcheck</code> before you write any tool.</p>
+    <div class="more"><button data-detail="d-inspector">Inspector vulnerabilities</button><button data-detail="d-tiers">SDKs for other languages</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="5">
+  <div class="stage">
+    <p class="eyebrow">Part 5 · Security</p>
+    <h2>A badly designed MCP server is also a badly secured one</h2>
+    <table>
+      <thead><tr><th>Risk</th><th>What goes wrong</th><th>What you do</th></tr></thead>
+      <tbody>
+        <tr><td><b>Tool poisoning</b></td><td>Description text goes straight into the model's context.</td><td>Read a third-party server's descriptions before connecting it.</td></tr>
+        <tr><td><b>Hints taken as rules</b></td><td>Nothing enforces <code>readOnlyHint</code>.</td><td>Enforce read-only in the server.</td></tr>
+        <tr><td><b>Oversharing</b></td><td>PII, keys and internal IDs end up in the context.</td><td>Return only what the task needs.</td></tr>
+        <tr><td><b>Local → remote</b></td><td>OAuth, TLS, CORS, rate limits arrive at once.</td><td>Plan for them before leaving stdio.</td></tr>
+        <tr><td><b>Open supergateway</b></td><td>No auth: anyone on the network can call your tools.</td><td>Run it only for the test.</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:14px">The title is a line from Tun Shwe and Jeremy Frenay, Lenses · “Your Insecure MCP Server Won't Survive Production”, 2026. The full topic is module 7.</p>
+    <div class="more"><button data-detail="d-elicit-secrets">Secrets and elicitation</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="5">
+  <div class="stage">
+    <p class="eyebrow">Part 5 · At company scale</p>
+    <h2>A gateway puts sign-in, access rules and audit in one place</h2>
+    <svg class="nm gw" viewBox="0 0 900 262" role="img" aria-label="Left: three clients each wired to four MCP servers, each server with its own sign-in, rules and log. Right: the same clients and servers connected through one gateway that handles sign-in, access rules and audit.">
+      <g>
+        <text x="10" y="18" class="lbl2">Without a gateway</text>
+        <g class="ln">
+          <line x1="120" y1="67" x2="300" y2="47"/><line x1="120" y1="67" x2="300" y2="102"/><line x1="120" y1="67" x2="300" y2="157"/><line x1="120" y1="67" x2="300" y2="212"/>
+          <line x1="120" y1="130" x2="300" y2="47"/><line x1="120" y1="130" x2="300" y2="102"/><line x1="120" y1="130" x2="300" y2="157"/><line x1="120" y1="130" x2="300" y2="212"/>
+          <line x1="120" y1="193" x2="300" y2="47"/><line x1="120" y1="193" x2="300" y2="102"/><line x1="120" y1="193" x2="300" y2="157"/><line x1="120" y1="193" x2="300" y2="212"/>
+        </g>
+        <rect class="nd" x="10" y="50" width="110" height="34" rx="8"/><text class="sm" x="65" y="72" text-anchor="middle">Claude Code</text>
+        <rect class="nd" x="10" y="113" width="110" height="34" rx="8"/><text class="sm" x="65" y="135" text-anchor="middle">Cursor</text>
+        <rect class="nd" x="10" y="176" width="110" height="34" rx="8"/><text class="sm" x="65" y="198" text-anchor="middle">n8n agent</text>
+        <rect class="nd" x="300" y="30" width="110" height="34" rx="8"/><text class="sm" x="355" y="52" text-anchor="middle">tickets</text>
+        <rect class="nd" x="300" y="85" width="110" height="34" rx="8"/><text class="sm" x="355" y="107" text-anchor="middle">billing</text>
+        <rect class="nd" x="300" y="140" width="110" height="34" rx="8"/><text class="sm" x="355" y="162" text-anchor="middle">CRM</text>
+        <rect class="nd" x="300" y="195" width="110" height="34" rx="8"/><text class="sm" x="355" y="217" text-anchor="middle">third-party</text>
+        <text x="10" y="254" class="bad">12 connections · 4 sign-ins · 4 rule sets · 4 logs</text>
+      </g>
+      <g transform="translate(480,0)">
+        <text x="10" y="18" class="lbl2">With a gateway</text>
+        <g class="ln">
+          <line x1="120" y1="67" x2="165" y2="100"/><line x1="120" y1="130" x2="165" y2="130"/><line x1="120" y1="193" x2="165" y2="160"/>
+          <line x1="275" y1="100" x2="300" y2="47"/><line x1="275" y1="115" x2="300" y2="102"/><line x1="275" y1="145" x2="300" y2="157"/><line x1="275" y1="160" x2="300" y2="212"/>
+        </g>
+        <rect class="nd" x="10" y="50" width="110" height="34" rx="8"/><text class="sm" x="65" y="72" text-anchor="middle">Claude Code</text>
+        <rect class="nd" x="10" y="113" width="110" height="34" rx="8"/><text class="sm" x="65" y="135" text-anchor="middle">Cursor</text>
+        <rect class="nd" x="10" y="176" width="110" height="34" rx="8"/><text class="sm" x="65" y="198" text-anchor="middle">n8n agent</text>
+        <rect class="hub" x="165" y="48" width="110" height="164" rx="10"/>
+        <text x="220" y="78" text-anchor="middle">Gateway</text>
+        <text class="sm" x="220" y="116" text-anchor="middle">sign-in</text>
+        <text class="sm" x="220" y="144" text-anchor="middle">access rules</text>
+        <text class="sm" x="220" y="172" text-anchor="middle">audit</text>
+        <rect class="nd" x="300" y="30" width="110" height="34" rx="8"/><text class="sm" x="355" y="52" text-anchor="middle">tickets</text>
+        <rect class="nd" x="300" y="85" width="110" height="34" rx="8"/><text class="sm" x="355" y="107" text-anchor="middle">billing</text>
+        <rect class="nd" x="300" y="140" width="110" height="34" rx="8"/><text class="sm" x="355" y="162" text-anchor="middle">CRM</text>
+        <rect class="nd" x="300" y="195" width="110" height="34" rx="8"/><text class="sm" x="355" y="217" text-anchor="middle">third-party</text>
+        <text x="10" y="254" class="good">7 connections · 1 sign-in · 1 rule set · 1 log</text>
+      </g>
+    </svg>
+    <div class="cols3">
+      <div class="card"><h3>One sign-in</h3><p class="muted">Without: every server has its own OAuth.</p><p>With: one sign-in via the company's identity provider.</p></div>
+      <div class="card"><h3>Access rules</h3><p class="muted">Without: each server decides, or nobody does.</p><p>With: one policy: who may call which server and tool.</p></div>
+      <div class="card"><h3>Audit</h3><p class="muted">Without: logs in four places, four formats.</p><p>With: one log of every call, in one format.</p></div>
+    </div>
+    <p class="muted" style="margin:10px 0 0;font-size:15px"><b>The registry</b> (official MCP Registry, preview since 8 Sep 2025) is a catalog, not a security review: read an unknown server's descriptions in Inspector before you connect it.</p>
+    <div class="so"><b>In practice</b>A single homework server doesn't need a gateway. A company with fifty servers does.</div>
+    <div class="more"><button data-detail="d-gateways">Examples and sources</button></div>
+  </div>
+</section>
+
+
+</main>
+
+<footer class="bottom">
+  <span class="keys">← → slides · 1–9 details · T theme · F full screen</span>
+  <div class="nav">
+    <button class="btn" id="prevBtn" aria-label="Previous slide">←</button>
+    <span class="counter" id="counter"></span>
+    <button class="btn" id="nextBtn" aria-label="Next slide">→</button>
+  </div>
+  <span></span>
+</footer>
+
+<dialog id="modal"><div class="dh"><h3 id="modalTitle"></h3><button class="btn" id="modalClose">Close<kbd>Esc</kbd></button></div><div class="db" id="modalBody"></div></dialog>
+
+<!-- ============ DETAILS ============ -->
+
+<template id="d-adoption" data-title="How widely MCP is used">
+  <ul>
+    <li>About 110 million SDK downloads a month: David Soria Parra, “The Future of MCP”, April 2026.</li>
+    <li>Close to half a billion a month across the Tier 1 SDKs: the maintainers' blog post for revision 2026-07-28, July 2026.</li>
+  </ul>
+  <blockquote>Models are only as good as the context provided to them.<cite>Mahesh Murag, Anthropic · slide, “Building Agents with Model Context Protocol”, 2025</cite></blockquote>
+</template>
+
+<template id="d-compose" data-title="MCP, skills, CLI and agent frameworks">
+  <blockquote>In 2026, we're going to start building agents that use all of it. They don't use one thing, they use all of it.<cite>David Soria Parra, Anthropic · “The Future of MCP”, 2026</cite></blockquote>
+  <p>“All of it”: skills, MCP, CLIs, computer use. They combine rather than compete.</p>
+  <p>MCP doesn't replace agent frameworks such as LangGraph either; it plugs into them. That's module 3.</p>
+  <blockquote>We don't think MCP is gonna replace agent frameworks.<cite>Mahesh Murag, Anthropic · “Building Agents with Model Context Protocol”, 2025</cite></blockquote>
+</template>
+
+<template id="d-r1" data-title="2024-11-05 · more on this revision">
+  <p>MCP was open-sourced by Anthropic on 25 Nov 2024, with this first revision of the spec.</p>
+  <h4>Authorization</h4>
+  <blockquote>Authentication and authorization are not currently part of the core MCP specification, but we are considering ways to introduce them in future.<cite>Spec 2024-11-05</cite></blockquote>
+  <h4>Also in this revision</h4>
+  <ul>
+    <li>HTTP+SSE, a first attempt at remote servers. Replaced four months later.</li>
+    <li>Sampling (a server borrows the client's model) and roots (the folders it may use). Both deprecated in 2026: few clients implemented them.</li>
+    <li>Utilities: ping, cancellation, progress, logging, completion, pagination.</li>
+  </ul>
+</template>
+
+<template id="d-r2" data-title="2025-03-26 · in the authors' words">
+  <h4>Why HTTP+SSE had to go (PR #206)</h4>
+  <p>It “requires the server to maintain a long-lived connection with high availability”, “does not support resumability” and “can only deliver server messages over SSE”. With Streamable HTTP, “stateless servers are now possible”.</p>
+  <h4>Tool annotations (PR #185)</h4>
+  <p>The PR warns that clients “can't necessarily trust servers”, so annotations are hints, not guarantees.</p>
+  <h4>Batching (PR #228)</h4>
+  <p>Without batching, the SDKs were, in the PR author's words, something “which technically puts us out of compliance with JSON-RPC”.</p>
+</template>
+
+<template id="d-r3" data-title="2025-06-18 · in the authors' words">
+  <h4>Structured output (PR #371)</h4>
+  <p>Strict validation of results is “especially useful when interacting with untrusted servers”.</p>
+  <h4>Elicitation (PR #382)</h4>
+  <p>“MCP lacked a standardized way for servers to request this information, requiring developers to implement custom solutions or multi-step tool calls.”</p>
+  <h4>Resource Indicators (PR #734)</h4>
+  <p>Required “to prevent malicious servers from obtaining access tokens”.</p>
+  <h4>Removing batching (PR #416)</h4>
+  <p>“I haven't seen any compelling use cases for batching.” Added and removed within three months with no warning; the 2026 deprecation policy (SEP-2596) cites exactly this.</p>
+  <h4>Also</h4>
+  <p>The <code>MCP-Protocol-Version</code> header is required on HTTP requests (PR #548): without a session, a server couldn't tell which version a request used.</p>
+</template>
+
+<template id="d-r4" data-title="2025-11-25 · in the authors' words">
+  <h4>Validation errors (SEP-1303)</h4>
+  <blockquote>With the current specifications, models cannot see these error messages and thus cannot self-correct.</blockquote>
+  <h4>Tasks (SEP-1686)</h4>
+  <p>There was “no way for a client to explicitly request the status of a tool call”, and if a result was dropped, “clients must call the tool again, which is undesirable for tools expected to take minutes or more”.</p>
+  <h4>CIMD (SEP-991)</h4>
+  <p>Dynamic Client Registration “requires servers to manage unbounded databases, handle expiration, and trust self-asserted metadata”. DCR drops from SHOULD to MAY.</p>
+  <h4>URL mode elicitation (SEP-1036)</h4>
+  <p>“API keys, passwords, and other credentials must never transit through intermediary systems.”</p>
+  <h4>Also</h4>
+  <p>Formal governance with working groups and SDK tiers; JSON Schema 2020-12 as the default dialect (SEP-1613). In December 2025 MCP joined the Agentic AI Foundation.</p>
+</template>
+
+<template id="d-r5" data-title="2026-07-28 · in the authors' words">
+  <h4>Sessions (SEP-2567)</h4>
+  <p>Nobody agreed what a session was: “some scope them per tool call, some per application launch, some per page load, and almost none resume them.” State that must outlive a call now lives behind an explicit handle.</p>
+  <h4>The handshake and ping (SEP-2575)</h4>
+  <p>The handshake “enforces the establishment of a state”, which rules out a plain round-robin load balancer. On ping: “any normal RPC call already proves server liveness”.</p>
+  <h4>MRTR (SEP-2322)</h4>
+  <p>Elicitation, sampling and roots saw adoption that was “very low or blocked for many Remote MCP servers”, because they needed SSE streams and server-side state.</p>
+  <h4>Deprecations (SEP-2577)</h4>
+  <p>Sampling: “This complexity has contributed to low client adoption.” Roots: “Few clients implement roots support, and few servers rely on it.” Dynamic Client Registration is deprecated too, in favor of CIMD (PR #2858).</p>
+  <h4>Also</h4>
+  <p><code>server/discover</code>, cacheable lists (<code>ttlMs</code>), and <code>Mcp-Method</code> / <code>Mcp-Name</code> headers so proxies can route without parsing JSON.</p>
+  <p>SDK 2.x speaks this revision. supergateway 4.x (Sep 2026), used in the homework, handles it too and falls back to older versions.</p>
+</template>
+
+<template id="d-mrtr" data-title="MRTR in four steps">
+  <table>
+    <tr><th>#</th><th>Who</th><th>What</th></tr>
+    <tr><td>1</td><td>client</td><td><code>tools/call</code></td></tr>
+    <tr><td>2</td><td>server</td><td>returns <code>input_required</code> with what it needs and a <code>requestState</code></td></tr>
+    <tr><td>3</td><td>client</td><td>asks the human, then <b>repeats the original call</b> with the answers and the same <code>requestState</code>; the JSON-RPC <code>id</code> is new</td></tr>
+    <tr><td>4</td><td>server</td><td>restores its state from <code>requestState</code> and does the work</td></tr>
+  </table>
+  <blockquote>Servers MUST send server-to-client requests (such as roots/list, sampling/createMessage, or elicitation/create) using the MRTR pattern.<cite>Spec 2026-07-28</cite></blockquote>
+  <p class="muted">Client support for elicitation was about 11% on 1 Aug 2026 (course guide <code>tool-design.md</code>). More on MRTR: guide <code>protocol-revision-2026-07-28.md</code>, section 3.</p>
+</template>
+
+<template id="d-census" data-title="About the census">
+  <p>RoninForge's state-of-mcp project probes every server in the official MCP Registry it can reach and checks four things revision 2026-07-28 requires: <code>server/discover</code>, calls without the handshake, no dependence on sessions, and the new routing headers.</p>
+  <table>
+    <tr><th>Date</th><th>Reachable</th><th>Passed all four</th></tr>
+    <tr><td>22 Jul 2026</td><td>4,937 of 18,032 listed</td><td>0</td></tr>
+    <tr><td>3 Aug 2026</td><td>–</td><td>6</td></tr>
+    <tr><td>13 Sep 2026</td><td>11,929 of 31,538 listed</td><td>31</td></tr>
+  </table>
+  <p>On 22 Jul, 81% already handled calls without the handshake, the biggest single change.</p>
+  <p class="muted">A third-party measurement: against the release-candidate rules on 22 Jul, against the final spec from 3 Aug. Source: github.com/RoninForge/state-of-mcp.</p>
+</template>
+
+<template id="d-desc" data-title="update_ticket · full description (branch m1)">
+<pre class="code">Move a ticket to a new status and store the result of your work:
+classification, answer or escalation reason. This is the ONLY way to
+change a ticket. Every call, accepted or rejected, is written to the
+agent trace.
+
+Allowed status transitions (the server enforces them, you cannot
+bypass them):
+  new -&gt; answered, new -&gt; escalated, answered -&gt; escalated.
+  'escalated' is final: nothing can change it.
+
+When to call: once you have a decision for a ticket. You MUST call
+get_ticket first and read the current `status`; you MUST pass a
+`new_status` that is allowed from it. You MUST pass `agent` (your role
+name, for example 'operator' or 'classifier').
+- new_status='answered' requires a non-empty `answer`.
+- new_status='escalated' requires a non-empty `escalation_reason`.
+When NOT to call: to read data (use get_ticket or list_tickets); to
+"check" whether a transition is possible (the allowed transitions are
+listed in the support://status-graph resource); when the ticket is
+already 'escalated' (nothing can change it, report that and stop).
+
+Output on rejection (is_error=true): {"ok": false, "error": {"code",
+"message", "hint", "current_status", "allowed_transitions"}}. If code is
+INVALID_STATUS_TRANSITION you MUST NOT repeat the same arguments: read
+`allowed_transitions`, choose one of them if it fits the situation,
+otherwise stop. If `allowed_transitions` is empty the ticket is final:
+stop and report it. If code is MISSING_REQUIRED_FIELD, repeat the call
+with the missing field filled.
+
+Example: update_ticket(ticket_id=1, new_status='answered',
+agent='operator', category='account', priority='low', score=92,
+answer='Open Settings &gt; Security &gt; Change password.')</pre>
+  <p class="muted">Lightly trimmed: the optional fields and the success output are omitted. Source: <code>mcp_server/support/mcp/tools.py</code>.</p>
+</template>
+
+<template id="d-sep1303" data-title="SEP-1303 · tool result vs protocol error">
+  <p>Since 2025-11-25, an input validation error is returned as a <b>tool result</b> with <code>isError: true</code>, not as a JSON-RPC protocol error.</p>
+  <p>A tool result goes back to the model, so it can read the message and fix the call. A protocol error is handled by the client, and the model often never sees it.</p>
+  <blockquote>With the current specifications, models cannot see these error messages and thus cannot self-correct.<cite>SEP-1303</cite></blockquote>
+</template>
+
+<template id="d-trigger" data-title="The second line of defense">
+  <p>The domain layer checks the transition first. Behind it, the SQLite trigger <code>trg_tickets_status_transition</code> refuses a forbidden status change even if someone bypasses the code.</p>
+  <p>Every attempt, accepted or rejected, is written to <code>agent_trace</code>. That's how we check a run: by the database, not by the agent's own summary.</p>
+</template>
+
+<template id="d-demo1" data-title="Demo 1 · what differs between A and B">
+  <p>Both versions start from branch <code>m1</code> with the same three changes, so the agent can't learn the status graph in advance:</p>
+  <ol>
+    <li><code>tools.py</code> → the transitions block and the rejection-handling block are removed from the <code>update_ticket</code> description.</li>
+    <li>The server instructions no longer mention the status graph.</li>
+    <li>No resources are registered, <code>support://status-graph</code> included.</li>
+  </ol>
+  <p>Version A has one more change: <code>results.py</code> → <code>fail()</code> returns <code>{"error": "Invalid transition"}</code> for every domain error. That is the only difference between A and B.</p>
+  <p class="muted">Why remove the graph from both: with it in place, a good agent reads the graph, sees that the move is forbidden and never calls the tool, so there is no error to compare. Both agents run with only the MCP server, no access to the source code.</p>
+</template>
+
+<template id="d-demo1-check" data-title="Demo 1 · what the server recorded">
+  <p>Every attempt lands in <code>agent_trace</code>, including the rejected ones, with the real error code. In version A the server knew the reason; it just didn't say it.</p>
+<pre class="code">sqlite3 -header -column data/ide-scenario.sqlite \
+  "SELECT id, status_from, status_to, outcome, error_code
+   FROM agent_trace WHERE ticket_id=12 AND id&gt;10;"</pre>
+  <p>Both versions: <code>get_ticket(12)</code> → <code>update_ticket(12, new_status="new")</code> → one rejected row with <code>INVALID_STATUS_TRANSITION</code>. In A the agent gets “Invalid transition” and gives up. In B it gets <code>allowed_transitions: ["escalated"]</code>, then escalates, or explains and offers to escalate. Either is fine.</p>
+</template>
+
+<template id="d-codemode" data-title="Code execution with MCP">
+  <p><b>The usual way:</b> every tool call is a model turn, and every result passes through the model's context, even 500 rows it only needs to count.</p>
+  <p><b>Code execution:</b> the client shows the MCP tools to the model as a code API. The model writes a short script, the client runs it in a sandbox, and only what the script prints goes back to the model.</p>
+<pre class="code"><span class="k">const</span> tickets = <span class="k">await</span> support.listTickets({ status: <span class="s">"new"</span> });
+<span class="k">const</span> refunds = tickets.filter(t =&gt; t.subject.includes(<span class="s">"refund"</span>));
+console.log(refunds.map(t =&gt; t.id));  <span class="c">// only this reaches the model</span></pre>
+  <p><b>The cost:</b> the client needs a secure sandbox, because it runs code the model wrote.</p>
+  <p><b>For your server:</b> nothing changes in the protocol. Clear names, typed inputs and an <code>outputSchema</code> make the generated code better.</p>
+  <p class="muted">Anthropic Engineering, “Code execution with MCP”, 4 Nov 2025 (150,000 → 2,000 tokens, −98.7%). Cloudflare, “Code Mode: the better way to use MCP”, Sep 2025.</p>
+</template>
+
+<template id="d-demo2" data-title="Demo 2 · Inspector">
+<pre class="code">CLIENT_PORT=6390 MCP_SANDBOX_PORT=6391 \
+  npx -y @modelcontextprotocol/inspector@2.13.0 \
+  "$PWD/scripts/server-stdio.sh" -e SUPPORT_DB_PATH=./data/ide-scenario.sqlite \
+  --protocol-era auto</pre>
+  <p><code>--protocol-era auto</code> connects with revision 2026-07-28: the first message in the protocol log is <code>server/discover</code>, not <code>initialize</code>.</p>
+  <p>Call <code>update_ticket(ticket_id=16, new_status="answered", agent="inspector", answer="test")</code>:</p>
+<pre class="code">{
+  "ok": false,
+  "error": {
+    "code": "INVALID_STATUS_TRANSITION",
+    "message": "cannot move ticket 16 from 'escalated' to 'answered'",
+    "hint": "Ticket 16 is in terminal status 'escalated' and can no longer
+             change. Do not retry. Report that the ticket is already handled.",
+    "current_status": "escalated",
+    "allowed_transitions": []
+  }
+}</pre>
+</template>
+
+<template id="d-prompts" data-title="Demo 3 · the prompts">
+  <h4>1 · success</h4>
+<pre class="code">Use the support-tickets server. Find the tickets that are still waiting for a reply, then answer the customer in ticket 5.</pre>
+  <h4>2 · rejection</h4>
+<pre class="code">Ticket 5 was answered by mistake. Call update_ticket to move it back to new. If the server refuses, do what it allows and tell me why.</pre>
+  <h4>3 · terminal</h4>
+<pre class="code">The customer in ticket 16 wrote again. Answer them: "We are processing your refund request."</pre>
+  <h4>4 · a missing field</h4>
+<pre class="code">Call update_ticket to mark ticket 6 as answered, without any answer text. Then fix the call the way the server tells you, with this answer: "This is the same issue as ticket 5. Please see our reply there."</pre>
+  <p class="muted">Why prompt 2 names the tool: with a good description, the agent already knows the move is forbidden and won't try it. To test a rejection in your homework, ask for the call explicitly.</p>
+</template>
+
+<template id="d-trace" data-title="Checking the run in agent_trace">
+<pre class="code">sqlite3 -header -column data/ide-scenario.sqlite \
+  "SELECT id, ticket_id, agent, status_from, status_to, outcome, error_code
+   FROM agent_trace WHERE id&gt;10 AND ticket_id IN (5,6,16) ORDER BY id;"</pre>
+  <p>Expected after prompts 1–3: ticket 5 <code>new → answered</code> ok, then a rejected <code>answered → new</code>, then <code>answered → escalated</code> ok if the agent escalated; ticket 16 is still <code>escalated</code>. If Demo 2 ran through the <code>npx</code> fallback on the same database, there is also one rejected row with <code>agent=inspector</code>; the Docker stand has its own database. With prompt 4: ticket 6 rejected with <code>MISSING_REQUIRED_FIELD</code>, then ok.</p>
+  <p class="muted">The model is nondeterministic. Any reasonable path that respects the status graph counts.</p>
+</template>
+
+<template id="d-inspector" data-title="Inspector vulnerabilities">
+  <table>
+    <tr><th>CVE / advisory</th><th>Affected</th><th>Fixed in</th></tr>
+    <tr><td>CVE-2025-49596</td><td>&lt; 0.14.1</td><td>0.14.1</td></tr>
+    <tr><td>CVE-2025-58444</td><td>&lt; 0.16.6</td><td>0.16.6</td></tr>
+    <tr><td>Advisories of 21 Oct 2026 (critical, command execution)</td><td>0.13.0–1.0.2</td><td>1.0.3</td></tr>
+    <tr><td>Advisories of 21 Oct 2026 (RCE)</td><td>2.0.0–2.11.0</td><td>2.12.0</td></tr>
+  </table>
+  <p>The minimum is 2.12.0 (or 1.0.3 on the 1.x line); the demo uses 2.13.0. Instructions that say just “2.x” are no longer enough.</p>
+</template>
+
+<template id="d-tiers" data-title="Official SDKs">
+  <table>
+    <tr><th>Tier</th><th>Languages</th></tr>
+    <tr><td>1</td><td>TypeScript, Python, C#, Go, Rust, Ruby</td></tr>
+    <tr><td>2</td><td>Java</td></tr>
+    <tr><td>3</td><td>Swift, PHP, Kotlin</td></tr>
+  </table>
+  <p>The homework accepts Python or TypeScript only.</p>
+  <p class="muted">Tiers are defined by SEP-1730 and listed on modelcontextprotocol.io; checked on 29 Oct 2026.</p>
+</template>
+
+<template id="d-elicit-secrets" data-title="Secrets and elicitation">
+  <blockquote>Servers MUST NOT use form mode elicitation to request sensitive information.<cite>MCP spec</cite></blockquote>
+  <p>Passwords, API keys, tokens, payment details: only URL mode, where the user enters them on the service's own page and the secret never passes through the client or the model.</p>
+  <p class="muted">Course guide <code>security-and-authorization.md</code>.</p>
+</template>
+
+<template id="d-gateways" data-title="Gateways · examples and sources">
+  <p>Examples of MCP gateways (our picks, not from the talks): ToolHive (open source), golf.dev, Runlayer.</p>
+  <blockquote>Be judicious about what servers you connect to.<cite>Mahesh Murag, Anthropic · “Building Agents with Model Context Protocol”, 2025</cite></blockquote>
+  <p>Karan Sampath (Anthropic, “Gateways Are All You Need”, 2026) argues that a security team should establish a root of trust: bless one platform, rather than have every team roll its own MCP infrastructure.</p>
+</template>
+
+
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const slides=$$(".slide"), n=slides.length;
+  let i=0;
+
+  const parts=[];
+  slides.forEach((s,k)=>{ if(s.classList.contains("divider")) parts.push({p:+s.dataset.part,label:s.dataset.label,at:k}); });
+  $("#tracker").innerHTML=parts.map(p=>`<button data-part="${p.p}"><b>${p.p}</b>${p.label}</button>`).join("");
+  const jumpTo=p=>{ const d=parts.find(x=>x.p===+p); if(d) show(d.at); };
+  $$("#tracker button").forEach(b=>b.onclick=()=>jumpTo(b.dataset.part));
+  $$("[data-goto]").forEach(b=>b.onclick=()=>jumpTo(b.dataset.goto));
+
+  function show(k){
+    i=Math.max(0,Math.min(n-1,k));
+    slides.forEach((s,j)=>s.classList.toggle("on",j===i));
+    const s=slides[i], p=+s.dataset.part;
+    $("#counter").textContent=(i+1)+" / "+n;
+    $("#progress").style.width=((i+1)/n*100)+"%";
+    $$("#tracker button").forEach(b=>{ const bp=+b.dataset.part; b.classList.toggle("on",bp===p); b.classList.toggle("done",bp<p); });
+    s.scrollTop=0;
+    if(location.hash!=="#"+(i+1)) history.replaceState(null,"","#"+(i+1));
+  }
+  function go(d){ show(i+d); }
+
+  function openDetail(id){
+    const tpl=document.getElementById(id); if(!tpl) return;
+    $("#modalTitle").textContent=tpl.dataset.title||"";
+    const body=$("#modalBody"); body.innerHTML=""; body.appendChild(tpl.content.cloneNode(true));
+    const m=$("#modal"); if(typeof m.showModal==="function") m.showModal(); else m.setAttribute("open","");
+  }
+  function closeModal(){ const m=$("#modal"); if(m.open){ if(typeof m.close==="function") m.close(); else m.removeAttribute("open"); } }
+
+  document.addEventListener("click",e=>{
+    const b=e.target.closest("[data-detail]"); if(b){ openDetail(b.dataset.detail); return; }
+    const o=e.target.closest("[data-open]"); if(o){ window.open(o.dataset.open,"_blank","noopener"); }
+  });
+  $("#modalClose").onclick=closeModal;
+  $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+  $("#prevBtn").onclick=()=>go(-1);
+  $("#nextBtn").onclick=()=>go(1);
+
+  function toggleTheme(){ const r=document.documentElement; const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme=dark?"light":"dark"; try{localStorage.setItem("m1-theme",r.dataset.theme)}catch(e){} }
+  $("#themeBtn").onclick=toggleTheme;
+
+  document.addEventListener("keydown",e=>{
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    if($("#modal").open){ if(e.key==="Escape") closeModal(); return; }
+    const k=e.key;
+    if(k==="ArrowRight"||k==="PageDown"||k===" "){ e.preventDefault(); go(1); }
+    else if(k==="ArrowLeft"||k==="PageUp"){ e.preventDefault(); go(-1); }
+    else if(k==="Home"){ show(0); }
+    else if(k==="End"){ show(n-1); }
+    else if(k==="t"||k==="T"){ toggleTheme(); }
+    else if(k==="f"||k==="F"){ if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    else if(/^[1-9]$/.test(k)){ const btns=slides[i].querySelectorAll(".more button"); const b=btns[+k-1]; if(b) b.click(); }
+  });
+
+  try{ const th=localStorage.getItem("m1-theme"); if(th) document.documentElement.dataset.theme=th; }catch(e){}
+  window.addEventListener("hashchange",()=>{ const k=parseInt(location.hash.slice(1),10); if(k) show(k-1); });
+  const h=parseInt(location.hash.slice(1),10);
+  show(h?h-1:0);
+})();
+</script>
+</body>
+</html>

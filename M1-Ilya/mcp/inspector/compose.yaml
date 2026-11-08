@@ -1,0 +1,47 @@
+# Inspector stand for the M1 lecture: Inspector with all the servers + Postgres for Postgres MCP Pro.
+#
+#   cp .env.example .env               # once; tokens are optional
+#   docker compose up --build -d       # build and start
+#   docker compose logs inspector      # the link with the token
+#   docker compose restart inspector   # clean catalog and a fresh support-tickets DB
+#   docker compose down                # stop
+#
+# Ports are published on 127.0.0.1 only: the Inspector backend starts processes on request.
+name: m1-mcp-inspector
+
+services:
+  inspector:
+    build: .
+    image: m1-mcp-inspector
+    ports:
+      - "127.0.0.1:${INSPECTOR_PORT:-6380}:${INSPECTOR_PORT:-6380}"
+    environment:
+      # The port inside and outside must match: Inspector hands the browser addresses with its own port.
+      CLIENT_PORT: ${INSPECTOR_PORT:-6380}
+      MCP_INSPECTOR_API_TOKEN: ${INSPECTOR_TOKEN:-}
+      GITHUB_TOKEN: ${GITHUB_TOKEN:-}
+      FIGMA_API_KEY: ${FIGMA_API_KEY:-}
+    volumes:
+      # Server list: edit the template → docker compose restart inspector, no rebuild needed.
+      - ./catalog.template.json:/opt/inspector/catalog.template.json:ro
+      # Our own small server: edit it on the host, press Reconnect in Inspector.
+      - ./own-server:/home/node/own-server:ro
+      # support-tickets from smart-support. By default the copy made by ../demo/demo-setup.sh.
+      # If the folder is missing, the server simply does not make it into the catalog.
+      - ${STS_DIR:-~/sts-demo/sts-m1}:/sts:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+
+  postgres:
+    image: postgres:17.6-alpine
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: support
+    volumes:
+      - ./postgres/seed.sql:/docker-entrypoint-initdb.d/seed.sql:ro
+    healthcheck:
+      test: ["CMD", "pg_isready", "-U", "demo", "-d", "support"]
+      interval: 2s
+      retries: 30

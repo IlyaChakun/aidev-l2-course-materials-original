@@ -1,0 +1,24 @@
+{
+  "_note": "Ожидание записано ДО запуска. Сценарий проверки части 1 (task1, «Проверка 2») из IDE-клиента на свежей БД (make db-reset db-seed). Агенту даётся ЦЕЛЬ, не список вызовов.",
+  "run": "ide-scenario",
+  "steps": [
+    {"n": 1, "action": "resources/read support://status-graph", "expect": "allowed_transitions: new->[answered,escalated], answered->[escalated], escalated->[]"},
+    {"n": 2, "action": "list_tickets(status=new, limit=3)", "expect": "count=3, ids 1,2,3, без поля body"},
+    {"n": 3, "action": "get_ticket(5)", "expect": "status=new, subject на английском"},
+    {"n": 4, "action": "update_ticket(5, answered, agent, answer=<текст>, category, priority, score)", "expect": "ok, transition new->answered"},
+    {"n": 5, "action": "update_ticket(5, new, agent)", "expect": "isError, INVALID_STATUS_TRANSITION, current_status=answered, allowed_transitions=[escalated], hint непустой"},
+    {"n": 6, "action": "update_ticket(5, escalated, agent, escalation_reason) по подсказке", "expect": "ok, transition answered->escalated"},
+    {"n": 7, "action": "update_ticket(5, answered, agent, answer)", "expect": "isError, INVALID_STATUS_TRANSITION, allowed_transitions=[]; hint велит остановиться"},
+    {"n": 8, "action": "update_ticket(6, answered, agent) без answer, затем повтор с answer", "expect": "сначала isError MISSING_REQUIRED_FIELD(field=answer), затем ok"}
+  ],
+  "behaviour_expected_without_human_hints": [
+    "агент сам вызывает get_ticket перед update_ticket",
+    "после отказа на шаге 5 агент исправляется по allowed_transitions, а не повторяет те же аргументы",
+    "после шага 7 агент останавливается и сообщает, что тикет финальный, без повторных попыток"
+  ],
+  "db_after": {
+    "ticket_5": {"status": "escalated", "agent_trace": ["ok", "rejected", "ok", "rejected"]},
+    "ticket_6": {"status": "answered", "agent_trace": ["rejected", "ok"]},
+    "other_tickets_unchanged": true
+  }
+}

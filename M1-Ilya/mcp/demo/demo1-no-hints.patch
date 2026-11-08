@@ -1,0 +1,60 @@
+diff --git a/mcp_server/support/mcp/server.py b/mcp_server/support/mcp/server.py
+index c234e9f..2024836 100644
+--- a/mcp_server/support/mcp/server.py
++++ b/mcp_server/support/mcp/server.py
+@@ -13,17 +13,14 @@ from .resources import register_resources
+ from .tools import register_tools
+ 
+ SERVER_NAME = "smart-support"
+-INSTRUCTIONS = (
+-    "Support ticket server. Tickets move new -> answered -> escalated (escalated is final). "
+-    "Read the support://status-graph resource, call get_ticket before update_ticket, "
+-    "and fix rejected calls using the `allowed_transitions` and `hint` in the error."
+-)
++INSTRUCTIONS = "Support ticket server. Call get_ticket before update_ticket."
+ 
+ 
+ def build_server(service: TicketService, *, log_level: str = "INFO") -> MCPServer:
+     server = MCPServer(SERVER_NAME, instructions=INSTRUCTIONS, log_level=log_level)  # type: ignore[arg-type]
+     register_tools(server, service)
+-    register_resources(server, service)
++    # DEMO A: no resources, so the status graph cannot be read
++    # register_resources(server, service)
+     return server
+ 
+ 
+diff --git a/mcp_server/support/mcp/tools.py b/mcp_server/support/mcp/tools.py
+index 38d2272..b951e90 100644
+--- a/mcp_server/support/mcp/tools.py
++++ b/mcp_server/support/mcp/tools.py
+@@ -50,27 +50,16 @@ UPDATE_TICKET_DESCRIPTION = """\
+ Move a ticket to a new status and store the result of your work: classification, answer or escalation reason. \
+ This is the ONLY way to change a ticket. Every call, accepted or rejected, is written to the agent trace.
+ 
+-Allowed status transitions (the server enforces them, you cannot bypass them):
+-  new -> answered, new -> escalated, answered -> escalated. 'escalated' is final: nothing can change it.
+-
+-When to call: once you have a decision for a ticket. You MUST call get_ticket first and read the current `status`; \
+-you MUST pass a `new_status` that is allowed from it. You MUST pass `agent` (your role name, for example \
+-'operator' or 'classifier').
++When to call: once you have a decision for a ticket. You MUST call get_ticket first and read the current `status`. \
++You MUST pass `agent` (your role name, for example 'operator' or 'classifier').
+ - new_status='answered' requires a non-empty `answer` (the text for the customer).
+ - new_status='escalated' requires a non-empty `escalation_reason` (short, factual, one sentence).
+-When NOT to call: to read data (use get_ticket or list_tickets); to "check" whether a transition is possible \
+-(the allowed transitions are listed in the support://status-graph resource); when the ticket is already \
+-'escalated' (nothing can change it, report that and stop).
++When NOT to call: to read data (use get_ticket or list_tickets).
+ 
+ Optional fields (stored together with the status change): category in billing|technical|account|how_to|complaint|other; \
+ priority in low|normal|high|urgent; score integer 0..100 (use round(confidence * 100)).
+ 
+ Output on success: {"ok": true, "ticket": {...}, "transition": {"from": "new", "to": "answered"}}.
+-Output on rejection (is_error=true): {"ok": false, "error": {"code", "message", "hint", "current_status", \
+-"allowed_transitions"}}. If code is INVALID_STATUS_TRANSITION you MUST NOT repeat the same arguments: read \
+-`allowed_transitions`, choose one of them if it fits the situation, otherwise stop. If `allowed_transitions` is \
+-empty the ticket is final: stop and report it. If code is MISSING_REQUIRED_FIELD, repeat the call with the missing \
+-field filled. A rejected call changes nothing in the ticket.
+ 
+ Example: update_ticket(ticket_id=1, new_status='answered', agent='operator', category='account', \
+ priority='low', score=92, answer='Open Settings > Security > Change password.')

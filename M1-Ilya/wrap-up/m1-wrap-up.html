@@ -1,0 +1,499 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Homework 1</title>
+<style>
+:root{
+  --bg:#f7f6f2; --surface:#ffffff; --surface-2:#f0eee8; --border:#dedad0;
+  --text:#1d1c1a; --muted:#6b675f; --accent:#c4561f; --accent-soft:#f6e3d8;
+  --good:#1f7a4d; --good-bg:#dcf1e4;
+  --bad:#a12a2a; --bad-bg:#f7d6d6;
+  --info:#245ea8; --info-bg:#dce8f7;
+  --ext:#6b3fa0; --ext-bg:#ebdff7;
+  --warn:#8a5a00; --warn-bg:#fbedc9;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+    --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+    --good:#6fd39d; --good-bg:#173326; --bad:#f08a8a; --bad-bg:#3b1818;
+    --info:#8ab6ef; --info-bg:#18273c; --ext:#c3a0ef; --ext-bg:#2b2040;
+    --warn:#f0c25c; --warn-bg:#352a10;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+  --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+  --good:#6fd39d; --good-bg:#173326; --bad:#f08a8a; --bad-bg:#3b1818;
+  --info:#8ab6ef; --info-bg:#18273c; --ext:#c3a0ef; --ext-bg:#2b2040;
+  --warn:#f0c25c; --warn-bg:#352a10;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:18px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+code{font-size:.88em;background:var(--surface-2);padding:.08em .35em;border-radius:4px}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+
+/* chrome */
+.top{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;font-size:13px;color:var(--muted);z-index:5;background:var(--bg);border-bottom:1px solid var(--border)}
+.tracker{display:flex;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tracker::-webkit-scrollbar{display:none}
+.tracker button{border:0;background:transparent;padding:5px 10px;border-radius:999px;cursor:pointer;font-size:13px;color:var(--muted);white-space:nowrap}
+.tracker button b{font-variant-numeric:tabular-nums;margin-right:5px;opacity:.7}
+.tracker button:hover{color:var(--text)}
+.tracker button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tracker button.done{color:var(--text)}
+.controls{display:flex;gap:6px;align-items:center;flex:none}
+.btn{border:1px solid var(--border);background:var(--surface);padding:5px 11px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--text)}
+.btn:hover{border-color:var(--accent)}
+.btn kbd{font:11px ui-monospace,monospace;color:var(--muted);margin-left:4px}
+.progress{position:fixed;left:0;top:0;height:3px;background:var(--accent);transition:width .2s;z-index:6}
+
+/* slides */
+.deck{position:fixed;inset:52px 0 40px 0;overflow:hidden}
+.slide{position:absolute;inset:0;display:none;overflow-y:auto;padding:12px 16px 24px}
+.slide.on{display:block}
+.stage{max-width:1120px;min-height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center;padding:10px 0}
+.eyebrow{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 8px}
+h1{font-size:clamp(30px,5vw,56px);line-height:1.08;letter-spacing:-.02em;margin:0 0 14px}
+h2{font-size:clamp(24px,3.1vw,36px);line-height:1.15;letter-spacing:-.015em;margin:0 0 20px;max-width:1000px}
+h3{margin:0 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.lead{font-size:clamp(18px,2vw,23px);color:var(--muted);margin:0 0 18px;max-width:920px}
+.big{font-size:clamp(19px,2.1vw,25px);line-height:1.4;margin:0 0 14px}
+p{margin:0 0 10px}
+ul.points{margin:0 0 8px;padding:0;list-style:none}
+ul.points li{position:relative;padding:6px 0 6px 22px;font-size:clamp(17px,1.8vw,21px)}
+ul.points li:before{content:"";position:absolute;left:2px;top:18px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+ul.points li small{display:block;color:var(--muted);font-size:.8em}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:st}
+ol.steps li{counter-increment:st;position:relative;padding:6px 0 6px 38px;font-size:clamp(16px,1.7vw,20px)}
+ol.steps li:before{content:counter(st);position:absolute;left:0;top:7px;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+ol.steps li small{display:block;color:var(--muted);font-size:.82em}
+blockquote{margin:6px 0 16px;padding:12px 18px;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 12px 12px 0;box-shadow:var(--shadow);font-size:clamp(18px,1.9vw,23px);line-height:1.4}
+blockquote cite{display:block;margin-top:6px;font-style:normal;font-size:14px;color:var(--muted)}
+blockquote.small{font-size:17px;padding:10px 16px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.cols.wide-l{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.cols>*,.cols3>*,.cols4>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px}
+.card p{margin:0 0 6px;font-size:16px}
+.card p:last-child{margin-bottom:0}
+.card ul{margin:0;padding-left:18px;font-size:16px}
+.card li{margin:4px 0}
+.card.good{border-color:var(--good)}.card.good h3{color:var(--good)}
+.card.bad{border-color:var(--bad)}.card.bad h3{color:var(--bad)}
+.card.accent{border-color:var(--accent)}.card.accent h3{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:clamp(15px,1.55vw,18px);background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:.78em;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td small{display:block;color:var(--muted);font-size:.85em}
+pre.code{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;font-size:clamp(12.5px,1.25vw,15px);line-height:1.5;overflow-x:auto;margin:0 0 12px;box-shadow:var(--shadow)}
+.k{color:var(--info)}.s{color:var(--good)}.e{color:var(--bad)}.c{color:var(--muted)}
+.pill{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.p-good{background:var(--good-bg);color:var(--good)}.p-bad{background:var(--bad-bg);color:var(--bad)}
+.p-info{background:var(--info-bg);color:var(--info)}.p-ext{background:var(--ext-bg);color:var(--ext)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}.p-mute{background:var(--surface-2);color:var(--muted)}
+.more{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.more button{border:1px dashed var(--border);background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font-size:14px}
+.more button:hover{border-color:var(--accent);color:var(--accent)}
+.more button:before{content:"+ "}
+.more button.link:before{content:"↗ "}
+.muted{color:var(--muted)}
+.so{margin-top:18px;padding:10px 16px;border-radius:10px;background:var(--accent-soft);font-size:clamp(16px,1.6vw,19px)}
+.so b{color:var(--accent);text-transform:uppercase;font-size:12px;letter-spacing:.06em;margin-right:8px}
+.demo-tag{align-self:flex-start;display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:3px 10px;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:10px}
+
+/* title + agenda */
+.title-slide h1{font-size:clamp(36px,6vw,72px)}
+.ideas{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.ideas div{border-top:2px solid var(--accent);padding-top:8px;font-size:16px;color:var(--muted)}
+.ideas div b{display:block;color:var(--text);font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.agenda{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.agenda button{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;cursor:pointer;display:flex;gap:14px;align-items:flex-start}
+.agenda button:hover{border-color:var(--accent)}
+.agenda .n{font-size:30px;font-weight:700;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
+.agenda .t{display:block;font-weight:700;font-size:18px;margin-bottom:3px}
+.agenda .d{display:block;font-size:15px;color:var(--muted)}
+
+/* section divider */
+.divider .num{font-size:clamp(64px,10vw,120px);font-weight:800;line-height:.9;color:var(--accent);letter-spacing:-.04em;margin-bottom:10px}
+.divider h1{max-width:900px}
+.divider .inpart{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:1100px}
+.divider .inpart div{border-left:3px solid var(--accent);padding:4px 0 4px 12px;font-size:18px}
+.divider .inpart div small{display:block;color:var(--muted);font-size:14px}
+.divider blockquote{margin-top:28px;max-width:900px}
+
+/* history */
+.mrail{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:0 0 14px;position:relative}
+.mrail:before{content:"";position:absolute;left:10%;right:10%;top:6px;height:2px;background:var(--border)}
+.mrail div{position:relative;text-align:center;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mrail i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 4px;background:var(--surface);border:2px solid var(--border)}
+.mrail .past i{border-color:var(--accent)}
+.mrail .on i{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.mrail .on{color:var(--text);font-weight:700}
+.why{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:0 12px 12px 0;padding:10px 16px;margin:0 0 14px;font-size:clamp(16px,1.65vw,19px)}
+.lbl{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-right:8px}
+ul.chg{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+ul.chg li{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+ul.chg li .pill{justify-self:start;margin-top:3px}
+ul.chg li b{font-size:clamp(15px,1.6vw,18px)}
+ul.chg li span.ref{font-size:12px;color:var(--muted);margin-left:6px;white-space:nowrap}
+ul.chg li p{margin:2px 0 0;font-size:clamp(14px,1.45vw,16px);color:var(--muted)}
+.hwline{margin:12px 0 0;font-size:16px;padding:8px 14px;border:1px dashed var(--border);border-radius:10px}
+.hwline b{color:var(--accent)}
+table.path td:first-child{white-space:nowrap}
+table.path td:first-child b{display:block;font-variant-numeric:tabular-nums}
+table.path td.arrow{color:var(--accent);font-weight:700;padding-left:0;padding-right:0}
+.census{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:baseline}
+.census .v{font-size:28px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right}
+.census .d{font-size:15px;color:var(--muted)}
+
+/* demos */
+.demo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.demo-grid>*{min-width:0}
+.prompt{font-size:clamp(17px,1.8vw,21px);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin:0 0 14px}
+.prompt b{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;display:block}
+
+/* error anatomy */
+.anat{display:grid;gap:8px}
+.anat div{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;font-size:16px;align-items:baseline}
+.anat code{justify-self:start}
+
+/* checklist */
+ul.check{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+ul.check li{position:relative;padding:9px 12px 9px 40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:clamp(15px,1.55vw,17px)}
+ul.check li:before{content:"";position:absolute;left:13px;top:12px;width:16px;height:16px;border:2px solid var(--accent);border-radius:4px}
+ul.check li small{display:block;color:var(--muted);font-size:.85em}
+
+/* diagram */
+svg.nm{width:100%;height:auto;max-height:40vh}
+svg.nm .ln{stroke:var(--border);stroke-width:2}
+svg.nm .hub{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+svg.nm .nd{fill:var(--surface);stroke:var(--muted);stroke-width:2}
+svg.nm text{fill:var(--text);font:600 15px -apple-system,BlinkMacSystemFont,sans-serif}
+svg.nm .lbl2{fill:var(--muted);font-weight:400;font-size:14px}
+svg.nm .sm{font-size:13px;font-weight:500}
+svg.nm .bad{fill:var(--bad);font-size:14px}
+svg.nm .good{fill:var(--good);font-size:14px}
+svg.gw{max-height:32vh;margin-bottom:12px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 18px;font-size:clamp(15px,1.7vw,19px)}
+.flow .box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 14px;box-shadow:var(--shadow)}
+.flow .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+.flow .box small{display:block;color:var(--muted);font-size:13px}
+.flow .arr{color:var(--muted)}
+
+/* watch list */
+.talks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.talk{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.talk .tt{font-weight:700;font-size:16px}
+.talk .tt a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border)}
+.talk .tt a:hover{border-color:var(--accent)}
+.talk .who{font-size:13px;color:var(--muted);margin:2px 0 6px}
+.talk .why2{font-size:14px;margin:0 0 8px}
+.talk .mo{display:flex;flex-wrap:wrap;gap:5px}
+.talk .mo a{font-size:12.5px;text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--text)}
+.talk .mo a b{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:4px}
+.talk .mo a:hover{border-color:var(--accent)}
+
+/* bottom bar */
+.bottom{position:fixed;left:0;right:0;bottom:0;height:40px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;font-size:13px;color:var(--muted);border-top:1px solid var(--border);background:var(--bg);z-index:8}
+.bottom .nav{display:flex;gap:6px;align-items:center}
+.counter{font-variant-numeric:tabular-nums;min-width:56px;text-align:center}
+
+/* modal */
+dialog{border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);padding:0;width:min(860px,calc(100vw - 32px));max-height:calc(100vh - 64px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .dh{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+dialog .dh h3{margin:0;font-size:18px;text-transform:none;letter-spacing:0;color:var(--text)}
+dialog .db{padding:16px 20px 22px;font-size:16px;overflow-y:auto}
+dialog .db p{margin:0 0 10px}
+dialog .db ul,dialog .db ol{margin:0 0 10px;padding-left:22px}
+dialog .db li{margin:3px 0}
+dialog .db table{font-size:15px;box-shadow:none;border:1px solid var(--border);margin-bottom:12px}
+dialog .db blockquote{font-size:16px;box-shadow:none;border:1px solid var(--border);border-left:4px solid var(--accent)}
+dialog .db pre.code{font-size:13.5px;box-shadow:none}
+dialog .db h4{margin:16px 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+
+@media (max-width:860px){
+  body{font-size:16px}
+  .cols,.cols.wide-l,.cols3,.cols4,.agenda,.demo-grid,.talks,ul.check{grid-template-columns:minmax(0,1fr)}
+  .top .btn kbd,.bottom .keys{display:none}
+  table{display:block;overflow-x:auto}
+  .hide-sm{display:none}
+  ul.chg li{grid-template-columns:minmax(0,1fr)}
+  .anat div{grid-template-columns:minmax(0,1fr)}
+  .mrail div span{display:none}
+}
+@media (max-height:820px) and (min-width:861px){
+  .top{height:44px}.deck{inset:44px 0 34px 0}.bottom{height:34px}
+  .stage{padding:4px 0}
+  h2{font-size:clamp(22px,2.6vw,30px);margin-bottom:12px}
+  .eyebrow{margin-bottom:4px}
+  .mrail{margin-bottom:8px}
+  .why{padding:7px 14px;margin-bottom:10px;font-size:16px}
+  ul.chg{gap:6px} ul.chg li{padding:6px 12px}
+  ul.chg li b{font-size:16px} ul.chg li p{font-size:14px}
+  .hwline{margin-top:8px;padding:6px 12px;font-size:15px}
+  .so{margin-top:12px;padding:8px 14px;font-size:16px}
+  .more{margin-top:10px}
+  th,td{padding:7px 12px}
+  table{font-size:15px}
+  blockquote{padding:9px 16px;margin-bottom:12px;font-size:19px}
+  blockquote.small{font-size:16px}
+  .big{font-size:20px}
+  ul.points li{padding:4px 0 4px 22px;font-size:18px} ul.points li:before{top:15px}
+  ol.steps li{font-size:17px;padding:4px 0 4px 38px} ol.steps li:before{top:4px}
+  .card{padding:11px 14px}
+  pre.code{padding:9px 13px;font-size:13px}
+  svg.nm{max-height:34vh}
+  svg.gw{max-height:29vh;margin-bottom:8px}
+  .divider .num{font-size:72px}
+  .talk{padding:9px 12px}.talk .why2{margin-bottom:5px}
+}
+@media (max-height:740px) and (min-width:861px){
+  .mrail span{display:none} .mrail{margin-bottom:4px}
+  h2{font-size:24px;margin-bottom:10px}
+  ul.chg li p{font-size:13.5px}
+  .talks{gap:8px} .talk .mo a{padding:1px 8px}
+  .hwline{margin-top:6px;padding:4px 12px} .more{margin-top:6px} svg.gw{max-height:28vh;margin-bottom:6px} ul.chg{gap:4px} ul.chg li{padding:5px 12px}
+}
+@media print{
+  body{overflow:visible}
+  .top,.bottom,.progress{display:none!important}
+  .deck{position:static}
+  .slide{position:relative;display:block!important;page-break-after:always;height:auto}
+}
+ul.links{list-style:none;margin:0;padding:0}
+ul.links li{padding:5px 0;font-size:clamp(15px,1.5vw,17px)}
+ul.links li small{display:block;color:var(--muted);font-size:.82em}
+.hwflow{display:grid;grid-template-columns:minmax(0,1fr) auto minmax(0,1fr) auto minmax(0,1fr);gap:10px;align-items:stretch}
+.hwflow .arr{align-self:center;color:var(--accent);font-size:26px;font-weight:700}
+.hwflow .card p{font-size:clamp(15px,1.55vw,17px)}
+.hwflow .card p.out{margin-top:10px;padding-top:8px;border-top:1px dashed var(--border);color:var(--muted);font-size:15px}
+@media (max-width:860px){ .hwflow{grid-template-columns:minmax(0,1fr)} .hwflow .arr{transform:rotate(90deg);justify-self:center} }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="top">
+  <nav class="tracker" id="tracker" aria-label="Lecture parts"></nav>
+  <div class="controls">
+    <button class="btn" id="themeBtn" title="Light / dark theme">Theme<kbd>T</kbd></button>
+  </div>
+</header>
+
+<main class="deck" id="deck">
+
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Today in one slide</p>
+    <h2>The MCP server holds the rules; n8n runs the steps around it</h2>
+    <div class="cols">
+      <div class="card"><h3>MCP</h3>
+        <ul>
+          <li>A server is an interface for an agent, not a wrapper around a REST API.</li>
+          <li>Tool descriptions and error messages are prompts: they steer the agent.</li>
+          <li>A forbidden transition is refused in server code, whatever the agent asks.</li>
+          <li>The protocol changed on 28 July 2026: check anything written before it.</li>
+        </ul></div>
+      <div class="card"><h3>n8n</h3>
+        <ul>
+          <li>Sits between closed SaaS and your own code: a visual flow, code where needed, self-hosted.</li>
+          <li>Steps you can name go into the workflow; an LLM only where you can't name them.</li>
+          <li>Guarantees come from nodes: a JSON check, an IF rule, an approval step.</li>
+          <li>Has limits: the licence, Git, load, tools per agent.</li>
+        </ul></div>
+    </div>
+    <div class="so"><b>In practice</b>In the homework: the transition rule goes in the server, a JSON check after each agent, and the expected outcome written down before every run.</div>
+  </div>
+</section>
+
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Homework 1 · In short</p>
+    <h2>Three parts, one private repository, handed in together</h2>
+    <div class="hwflow">
+      <div class="card accent"><h3>1 · MCP server</h3>
+        <p>A server over your project's database: a tool contract, at least one resource, status transitions validated in code.</p>
+        <p class="out">Code, <code>README.md</code>, DDL and <code>seed.sql</code>, validation rules in <code>report.md</code></p></div>
+      <span class="arr" aria-hidden="true">→</span>
+      <div class="card accent"><h3>2 · Agents on paper</h3>
+        <p>The roles of 2–3 agents in your project and their system prompts.</p>
+        <p class="out"><code>agents.md</code>, <code>prompts/</code></p></div>
+      <span class="arr" aria-hidden="true">→</span>
+      <div class="card accent"><h3>3 · Prototype in n8n</h3>
+        <p>A linear chain of 2–3 agents passing JSON strictly in sequence; at least one calls a tool, and the run leaves a trace in the project database. The expected output is written before each run.</p>
+        <p class="out">The workflow as JSON, observations in <code>report.md</code></p></div>
+    </div>
+    <p class="muted" style="margin-top:14px">Plus <code>process-log.md</code> (how you worked with the agent), screenshots and the IDE dialog log.</p>
+    <p class="hwline"><b>Homework:</b> pick a level, normal or advanced, and state it in <code>report.md</code>. The criteria are the same; the scope differs.</p>
+    <div class="more"><button data-detail="d-levels">Normal vs advanced</button></div>
+  </div>
+</section>
+
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">After the session</p>
+    <h2>Worth watching</h2>
+    <div class="cols">
+      <div class="card"><h3>MCP</h3>
+        <ul class="links">
+          <li><a href="https://youtu.be/96G7FLab8xc" target="_blank" rel="noopener">Your MCP Server is Bad and You Should Feel Bad</a><small>Jeremiah Lowin, Prefect</small></li>
+          <li><a href="https://youtu.be/kQmXtrmQ5Zg" target="_blank" rel="noopener">Building Agents with Model Context Protocol</a><small>Mahesh Murag, Anthropic</small></li>
+          <li><a href="https://youtu.be/v3Fr2JR47KA" target="_blank" rel="noopener">The Future of MCP</a><small>David Soria Parra, Anthropic</small></li>
+          <li><a href="https://youtu.be/BurJvbqFr4c" target="_blank" rel="noopener">Your Insecure MCP Server Won't Survive Production</a><small>Tun Shwe and Jeremy Frenay, Lenses</small></li>
+          <li><a href="https://youtu.be/s4r6nk5WsZw" target="_blank" rel="noopener">MCP Tasks (async)</a><small>Cornelia Davis, Temporal</small></li>
+          <li><a href="https://youtu.be/CD6R4Wf3jnY" target="_blank" rel="noopener">Gateways Are All You Need</a><small>Karan Sampath, Anthropic</small></li>
+          <li><a href="https://engineering.block.xyz/blog/blocks-playbook-for-designing-mcp-servers" target="_blank" rel="noopener">Block's playbook for designing MCP servers</a><small>article</small></li>
+        </ul></div>
+      <div class="card"><h3>n8n</h3>
+        <ul class="links">
+          <li><a href="https://youtu.be/tDArkCqjA-c" target="_blank" rel="noopener">Human-in-the-Loop Automation with n8n</a><small>Liam McGarrigle, n8n</small></li>
+          <li><a href="https://youtu.be/r5Rqrw6R150" target="_blank" rel="noopener">The Agent Left the Workflow: Building n8n Agents</a><small>Liam McGarrigle and Leo Deverell, n8n</small></li>
+          <li><a href="https://youtu.be/PkoX6R5sn8Y" target="_blank" rel="noopener">Stop Calling n8n Dead, Watch What the CEO Builds</a><small>Jan Oberhauser, n8n</small></li>
+          <li><a href="https://youtu.be/RUHU-w4Lz1I" target="_blank" rel="noopener">Building the Universal AI Automation Layer</a><small>Jan Oberhauser, n8n</small></li>
+          <li><a href="https://youtu.be/1a-bYvfKoLc" target="_blank" rel="noopener">Evaluations in Agentic Workflows</a><small>JP van Oosten, n8n</small></li>
+          <li><a href="https://youtu.be/oeEWjfJkD4I" target="_blank" rel="noopener">Test &amp; Production Deployment in n8n</a><small>Bach-Thi Dinh, Exxeta</small></li>
+          <li><a href="https://youtu.be/-pwsCYtnOk4" target="_blank" rel="noopener">Identify, Scope, and Build an Agentic Workflow in n8n</a><small>Max Tkacz, n8n</small></li>
+        </ul></div>
+    </div>
+    <div class="more"><button data-detail="d-qa-mcp">Questions people often ask: MCP</button><button data-detail="d-qa-n8n">Questions people often ask: n8n</button></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="bottom">
+  <span class="keys">← → slides · 1–9 details · T theme · F full screen</span>
+  <div class="nav">
+    <button class="btn" id="prevBtn" aria-label="Previous slide">←</button>
+    <span class="counter" id="counter"></span>
+    <button class="btn" id="nextBtn" aria-label="Next slide">→</button>
+  </div>
+  <span></span>
+</footer>
+
+<dialog id="modal"><div class="dh"><h3 id="modalTitle"></h3><button class="btn" id="modalClose">Close<kbd>Esc</kbd></button></div><div class="db" id="modalBody"></div></dialog>
+
+<!-- ============ DETAILS ============ -->
+
+<template id="d-levels" data-title="Normal vs advanced">
+  <table>
+    <thead><tr><th></th><th>Normal</th><th>Advanced</th></tr></thead>
+    <tbody>
+      <tr><td>Tools</td><td>3</td><td>5</td></tr>
+      <tr><td>Resource</td><td>the database schema</td><td>plus a resource template <code>db://entity/{id}</code></td></tr>
+      <tr><td>Server state between calls</td><td>in process memory is fine</td><td>outside the process (file, SQLite or Redis), plus what happens behind a load balancer, in <code>report.md</code></td></tr>
+      <tr><td>Transport</td><td>stdio</td><td>plus Streamable HTTP with an <code>Authorization: Bearer</code> check</td></tr>
+      <tr><td>Calling a tool from n8n</td><td>MCP Client Tool through supergateway, or HTTP Request Tool to your own wrapper</td><td>MCP Client Tool directly: the server speaks Streamable HTTP with a bearer token</td></tr>
+      <tr><td>Agents in the chain</td><td>2</td><td>3</td></tr>
+      <tr><td>Runs</td><td>2: a normal one and a bad input</td><td>3, plus 5–10 cases in Evaluations with a screenshot of the metric cards</td></tr>
+    </tbody>
+  </table>
+  <p>The tool count is a guide, not a criterion. Explain your set in <code>report.md</code>. Time: normal 6–8 hours, advanced 10–12, with the infrastructure already set up.</p>
+  <p>Evaluations metrics on self-hosted Community Edition work for one workflow after free registration.</p>
+</template>
+
+<template id="d-qa-mcp" data-title="Questions people often ask: MCP">
+  <h4>Why MCP if the system already has an API?</h4>
+  <p>If the agent loop is entirely yours, you may not need it. MCP pays off when the model chooses the tools and there's more than one consumer.</p>
+  <h4>Can I use FastMCP?</h4>
+  <p>The <code>FastMCP</code> class from <code>mcp</code> 1.x is called <code>MCPServer</code> in 2.x; snippets with <code>mcp.server.fastmcp</code> are 1.x recipes. The separate <code>fastmcp</code> package (Lowin's) is a third-party framework with its own versioning. The starter and <code>selfcheck</code> are written for <code>mcp</code> 2.x. If you still pick <code>fastmcp</code>: only it, no mixed imports, pin the version.</p>
+  <h4>How many tools for the homework?</h4>
+  <p>3 or 5 is a guide. The contract is graded, not the count; justify your set in <code>report.md</code>.</p>
+  <h4>How do I ask for confirmation before an irreversible action?</h4>
+  <p>The right mechanism is elicitation, but client support is poor and an automated client doesn't know what to answer. For now: a <code>confirm</code> argument defaulting to <code>false</code>, checked in code.</p>
+  <blockquote>Elicitation is a better way to design for that… Wish I could say yes. I hope to say yes.<cite>Jeremiah Lowin, Prefect · Q&amp;A, “Your MCP Server is Bad”, 2025</cite></blockquote>
+</template>
+
+<template id="d-qa-n8n" data-title="Questions people often ask: n8n">
+  <h4>Why n8n if I have Claude Code and can write code?</h4>
+  <p>If the steps are known and people other than the author need to read and change the process, n8n is cheaper to maintain. Logic with invariants goes into a service or an MCP server, and n8n calls it.</p>
+  <h4>Cloud or self-hosted for the homework?</h4>
+  <p>Either works, on the 2.3x line. Self-hosted in Docker is simpler: n8n Cloud can't see localhost, so it needs a tunnel or a deployed server to reach your MCP server and database.</p>
+  <h4>Can I keep workflows in Git on Community Edition?</h4>
+  <p>There's no built-in Git integration on Community Edition. Export the workflow with <code>n8n export:workflow</code> and commit the JSON.</p>
+  <h4>Can I build a product on n8n?</h4>
+  <p>For your own internal use, yes, for free. Selling n8n as a service, or embedding it in a paid product where customers connect their own credentials, needs a commercial or Embed licence (Sustainable Use License).</p>
+  <h4>What about n8n 3.0?</h4>
+  <p>It's in beta since 27 Oct 2026; the stable release is expected in early December. After that, 2.x gets security fixes for 12 more months. The homework stays on the 2.3x line.</p>
+  <h4>Which model should I use?</h4>
+  <p>n8n has nodes for OpenAI, Anthropic, Gemini and others, and any OpenAI-compatible endpoint works through Options → Base URL. The model must support tool calling. GitHub Copilot can't be connected.</p>
+</template>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const slides=$$(".slide"), n=slides.length;
+  let i=0;
+
+  const parts=[];
+  slides.forEach((s,k)=>{ if(s.classList.contains("divider")) parts.push({p:+s.dataset.part,label:s.dataset.label,at:k}); });
+  $("#tracker").innerHTML=parts.map(p=>`<button data-part="${p.p}"><b>${p.p}</b>${p.label}</button>`).join("");
+  const jumpTo=p=>{ const d=parts.find(x=>x.p===+p); if(d) show(d.at); };
+  $$("#tracker button").forEach(b=>b.onclick=()=>jumpTo(b.dataset.part));
+  $$("[data-goto]").forEach(b=>b.onclick=()=>jumpTo(b.dataset.goto));
+
+  function show(k){
+    i=Math.max(0,Math.min(n-1,k));
+    slides.forEach((s,j)=>s.classList.toggle("on",j===i));
+    const s=slides[i], p=+s.dataset.part;
+    $("#counter").textContent=(i+1)+" / "+n;
+    $("#progress").style.width=((i+1)/n*100)+"%";
+    $$("#tracker button").forEach(b=>{ const bp=+b.dataset.part; b.classList.toggle("on",bp===p); b.classList.toggle("done",bp<p); });
+    s.scrollTop=0;
+    if(location.hash!=="#"+(i+1)) history.replaceState(null,"","#"+(i+1));
+  }
+  function go(d){ show(i+d); }
+
+  function openDetail(id){
+    const tpl=document.getElementById(id); if(!tpl) return;
+    $("#modalTitle").textContent=tpl.dataset.title||"";
+    const body=$("#modalBody"); body.innerHTML=""; body.appendChild(tpl.content.cloneNode(true));
+    const m=$("#modal"); if(typeof m.showModal==="function") m.showModal(); else m.setAttribute("open","");
+  }
+  function closeModal(){ const m=$("#modal"); if(m.open){ if(typeof m.close==="function") m.close(); else m.removeAttribute("open"); } }
+
+  document.addEventListener("click",e=>{
+    const b=e.target.closest("[data-detail]"); if(b){ openDetail(b.dataset.detail); return; }
+    const o=e.target.closest("[data-open]"); if(o){ window.open(o.dataset.open,"_blank","noopener"); }
+  });
+  $("#modalClose").onclick=closeModal;
+  $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+  $("#prevBtn").onclick=()=>go(-1);
+  $("#nextBtn").onclick=()=>go(1);
+
+  function toggleTheme(){ const r=document.documentElement; const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme=dark?"light":"dark"; try{localStorage.setItem("m1-theme",r.dataset.theme)}catch(e){} }
+  $("#themeBtn").onclick=toggleTheme;
+
+  document.addEventListener("keydown",e=>{
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    if($("#modal").open){ if(e.key==="Escape") closeModal(); return; }
+    const k=e.key;
+    if(k==="ArrowRight"||k==="PageDown"||k===" "){ e.preventDefault(); go(1); }
+    else if(k==="ArrowLeft"||k==="PageUp"){ e.preventDefault(); go(-1); }
+    else if(k==="Home"){ show(0); }
+    else if(k==="End"){ show(n-1); }
+    else if(k==="t"||k==="T"){ toggleTheme(); }
+    else if(k==="f"||k==="F"){ if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    else if(/^[1-9]$/.test(k)){ const btns=slides[i].querySelectorAll(".more button"); const b=btns[+k-1]; if(b) b.click(); }
+  });
+
+  try{ const th=localStorage.getItem("m1-theme"); if(th) document.documentElement.dataset.theme=th; }catch(e){}
+  window.addEventListener("hashchange",()=>{ const k=parseInt(location.hash.slice(1),10); if(k) show(k-1); });
+  const h=parseInt(location.hash.slice(1),10);
+  show(h?h-1:0);
+})();
+</script>
+</body>
+</html>

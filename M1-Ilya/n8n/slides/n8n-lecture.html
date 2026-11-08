@@ -1,0 +1,1467 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>n8n workflow automation</title>
+<style>
+:root{
+  --bg:#f7f6f2; --surface:#ffffff; --surface-2:#f0eee8; --border:#dedad0;
+  --text:#1d1c1a; --muted:#6b675f; --accent:#c4561f; --accent-soft:#f6e3d8;
+  --good:#1f7a4d; --good-bg:#dcf1e4;
+  --bad:#a12a2a; --bad-bg:#f7d6d6;
+  --info:#245ea8; --info-bg:#dce8f7;
+  --ext:#6b3fa0; --ext-bg:#ebdff7;
+  --warn:#8a5a00; --warn-bg:#fbedc9;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+    --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+    --good:#6fd39d; --good-bg:#173326; --bad:#f08a8a; --bad-bg:#3b1818;
+    --info:#8ab6ef; --info-bg:#18273c; --ext:#c3a0ef; --ext-bg:#2b2040;
+    --warn:#f0c25c; --warn-bg:#352a10;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+  --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+  --good:#6fd39d; --good-bg:#173326; --bad:#f08a8a; --bad-bg:#3b1818;
+  --info:#8ab6ef; --info-bg:#18273c; --ext:#c3a0ef; --ext-bg:#2b2040;
+  --warn:#f0c25c; --warn-bg:#352a10;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--text);font:18px/1.5 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased;overflow:hidden}
+code,pre{font-family:ui-monospace,SFMono-Regular,Menlo,Consolas,monospace}
+code{font-size:.88em;background:var(--surface-2);padding:.08em .35em;border-radius:4px}
+a{color:var(--accent)}
+button{font:inherit;color:inherit}
+
+/* chrome */
+.top{position:fixed;top:0;left:0;right:0;height:52px;display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 16px;font-size:13px;color:var(--muted);z-index:5;background:var(--bg);border-bottom:1px solid var(--border)}
+.tracker{display:flex;gap:4px;min-width:0;overflow-x:auto;scrollbar-width:none}
+.tracker::-webkit-scrollbar{display:none}
+.tracker button{border:0;background:transparent;padding:5px 10px;border-radius:999px;cursor:pointer;font-size:13px;color:var(--muted);white-space:nowrap}
+.tracker button b{font-variant-numeric:tabular-nums;margin-right:5px;opacity:.7}
+.tracker button:hover{color:var(--text)}
+.tracker button.on{background:var(--accent-soft);color:var(--accent);font-weight:600}
+.tracker button.done{color:var(--text)}
+.controls{display:flex;gap:6px;align-items:center;flex:none}
+.btn{border:1px solid var(--border);background:var(--surface);padding:5px 11px;border-radius:8px;cursor:pointer;font-size:13px;white-space:nowrap;text-decoration:none;color:var(--text)}
+.btn:hover{border-color:var(--accent)}
+.btn kbd{font:11px ui-monospace,monospace;color:var(--muted);margin-left:4px}
+.progress{position:fixed;left:0;top:0;height:3px;background:var(--accent);transition:width .2s;z-index:6}
+
+/* slides */
+.deck{position:fixed;inset:52px 0 40px 0;overflow:hidden}
+.slide{position:absolute;inset:0;display:none;overflow-y:auto;padding:12px 16px 24px}
+.slide.on{display:block}
+.stage{max-width:1120px;min-height:100%;margin:0 auto;display:flex;flex-direction:column;justify-content:center;padding:10px 0}
+.eyebrow{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--accent);font-weight:600;margin:0 0 8px}
+h1{font-size:clamp(30px,5vw,56px);line-height:1.08;letter-spacing:-.02em;margin:0 0 14px}
+h2{font-size:clamp(24px,3.1vw,36px);line-height:1.15;letter-spacing:-.015em;margin:0 0 20px;max-width:1000px}
+h3{margin:0 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.lead{font-size:clamp(18px,2vw,23px);color:var(--muted);margin:0 0 18px;max-width:920px}
+.big{font-size:clamp(19px,2.1vw,25px);line-height:1.4;margin:0 0 14px}
+p{margin:0 0 10px}
+ul.points{margin:0 0 8px;padding:0;list-style:none}
+ul.points li{position:relative;padding:6px 0 6px 22px;font-size:clamp(17px,1.8vw,21px)}
+ul.points li:before{content:"";position:absolute;left:2px;top:18px;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+ul.points li small{display:block;color:var(--muted);font-size:.8em}
+ol.steps{margin:0;padding:0;list-style:none;counter-reset:st}
+ol.steps li{counter-increment:st;position:relative;padding:6px 0 6px 38px;font-size:clamp(16px,1.7vw,20px)}
+ol.steps li:before{content:counter(st);position:absolute;left:0;top:7px;width:26px;height:26px;border-radius:50%;background:var(--accent-soft);color:var(--accent);font-weight:700;font-size:14px;display:flex;align-items:center;justify-content:center}
+ol.steps li small{display:block;color:var(--muted);font-size:.82em}
+blockquote{margin:6px 0 16px;padding:12px 18px;border-left:4px solid var(--accent);background:var(--surface);border-radius:0 12px 12px 0;box-shadow:var(--shadow);font-size:clamp(18px,1.9vw,23px);line-height:1.4}
+blockquote cite{display:block;margin-top:6px;font-style:normal;font-size:14px;color:var(--muted)}
+blockquote.small{font-size:17px;padding:10px 16px}
+.cols{display:grid;grid-template-columns:minmax(0,1fr) minmax(0,1fr);gap:18px}
+.cols.wide-l{grid-template-columns:minmax(0,1.35fr) minmax(0,1fr)}
+.cols3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.cols4{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:12px}
+.cols>*,.cols3>*,.cols4>*{min-width:0}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:14px 16px}
+.card p{margin:0 0 6px;font-size:16px}
+.card p:last-child{margin-bottom:0}
+.card ul{margin:0;padding-left:18px;font-size:16px}
+.card li{margin:4px 0}
+.card.good{border-color:var(--good)}.card.good h3{color:var(--good)}
+.card.bad{border-color:var(--bad)}.card.bad h3{color:var(--bad)}
+.card.accent{border-color:var(--accent)}.card.accent h3{color:var(--accent)}
+table{border-collapse:collapse;width:100%;font-size:clamp(15px,1.55vw,18px);background:var(--surface);border-radius:12px;overflow:hidden;box-shadow:var(--shadow)}
+th,td{text-align:left;padding:10px 14px;border-bottom:1px solid var(--border);vertical-align:top}
+th{background:var(--surface-2);font-size:.78em;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+tr:last-child td{border-bottom:0}
+td small{display:block;color:var(--muted);font-size:.85em}
+pre.code{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 15px;font-size:clamp(12.5px,1.25vw,15px);line-height:1.5;overflow-x:auto;margin:0 0 12px;box-shadow:var(--shadow)}
+.k{color:var(--info)}.s{color:var(--good)}.e{color:var(--bad)}.c{color:var(--muted)}
+.pill{display:inline-block;font-size:12px;padding:2px 9px;border-radius:999px;font-weight:600;white-space:nowrap;vertical-align:middle}
+.p-good{background:var(--good-bg);color:var(--good)}.p-bad{background:var(--bad-bg);color:var(--bad)}
+.p-info{background:var(--info-bg);color:var(--info)}.p-ext{background:var(--ext-bg);color:var(--ext)}
+.p-warn{background:var(--warn-bg);color:var(--warn)}.p-mute{background:var(--surface-2);color:var(--muted)}
+.more{display:flex;flex-wrap:wrap;gap:8px;margin-top:14px}
+.more button{border:1px dashed var(--border);background:transparent;color:var(--muted);padding:5px 12px;border-radius:999px;cursor:pointer;font-size:14px}
+.more button:hover{border-color:var(--accent);color:var(--accent)}
+.more button:before{content:"+ "}
+.more button.link:before{content:"↗ "}
+.muted{color:var(--muted)}
+.so{margin-top:18px;padding:10px 16px;border-radius:10px;background:var(--accent-soft);font-size:clamp(16px,1.6vw,19px)}
+.so b{color:var(--accent);text-transform:uppercase;font-size:12px;letter-spacing:.06em;margin-right:8px}
+.demo-tag{align-self:flex-start;display:inline-block;background:var(--accent);color:#fff;border-radius:8px;padding:3px 10px;font-size:13px;font-weight:700;letter-spacing:.04em;margin-bottom:10px}
+
+/* title + agenda */
+.title-slide h1{font-size:clamp(36px,6vw,72px)}
+.ideas{margin-top:22px;display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:12px}
+.ideas div{border-top:2px solid var(--accent);padding-top:8px;font-size:16px;color:var(--muted)}
+.ideas div b{display:block;color:var(--text);font-size:13px;text-transform:uppercase;letter-spacing:.05em;margin-bottom:2px}
+.agenda{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.agenda button{text-align:left;background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:16px;cursor:pointer;display:flex;gap:14px;align-items:flex-start}
+.agenda button:hover{border-color:var(--accent)}
+.agenda .n{font-size:30px;font-weight:700;color:var(--accent);line-height:1;font-variant-numeric:tabular-nums}
+.agenda .t{display:block;font-weight:700;font-size:18px;margin-bottom:3px}
+.agenda .d{display:block;font-size:15px;color:var(--muted)}
+
+/* section divider */
+.divider .num{font-size:clamp(64px,10vw,120px);font-weight:800;line-height:.9;color:var(--accent);letter-spacing:-.04em;margin-bottom:10px}
+.divider h1{max-width:900px}
+.divider .inpart{margin-top:10px;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:12px;max-width:1100px}
+.divider .inpart div{border-left:3px solid var(--accent);padding:4px 0 4px 12px;font-size:18px}
+.divider .inpart div small{display:block;color:var(--muted);font-size:14px}
+.divider blockquote{margin-top:28px;max-width:900px}
+
+/* history */
+.mrail{display:grid;grid-template-columns:repeat(5,1fr);gap:4px;margin:0 0 14px;position:relative}
+.mrail:before{content:"";position:absolute;left:10%;right:10%;top:6px;height:2px;background:var(--border)}
+.mrail div{position:relative;text-align:center;font-size:12px;color:var(--muted);font-variant-numeric:tabular-nums}
+.mrail i{display:block;width:14px;height:14px;border-radius:50%;margin:0 auto 4px;background:var(--surface);border:2px solid var(--border)}
+.mrail .past i{border-color:var(--accent)}
+.mrail .on i{background:var(--accent);border-color:var(--accent);box-shadow:0 0 0 4px var(--accent-soft)}
+.mrail .on{color:var(--text);font-weight:700}
+.why{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--accent);border-radius:0 12px 12px 0;padding:10px 16px;margin:0 0 14px;font-size:clamp(16px,1.65vw,19px)}
+.lbl{display:inline-block;font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.06em;color:var(--accent);margin-right:8px}
+ul.chg{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+ul.chg li{display:grid;grid-template-columns:104px minmax(0,1fr);gap:12px;align-items:start;background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:9px 12px}
+ul.chg li .pill{justify-self:start;margin-top:3px}
+ul.chg li b{font-size:clamp(15px,1.6vw,18px)}
+ul.chg li span.ref{font-size:12px;color:var(--muted);margin-left:6px;white-space:nowrap}
+ul.chg li p{margin:2px 0 0;font-size:clamp(14px,1.45vw,16px);color:var(--muted)}
+.hwline{margin:12px 0 0;font-size:16px;padding:8px 14px;border:1px dashed var(--border);border-radius:10px}
+.hwline b{color:var(--accent)}
+table.path td:first-child{white-space:nowrap}
+table.path td:first-child b{display:block;font-variant-numeric:tabular-nums}
+table.path td.arrow{color:var(--accent);font-weight:700;padding-left:0;padding-right:0}
+.census{display:grid;grid-template-columns:auto 1fr;gap:6px 14px;align-items:baseline}
+.census .v{font-size:28px;font-weight:800;color:var(--accent);font-variant-numeric:tabular-nums;text-align:right}
+.census .d{font-size:15px;color:var(--muted)}
+
+/* demos */
+.demo-grid{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:14px}
+.demo-grid>*{min-width:0}
+.prompt{font-size:clamp(17px,1.8vw,21px);background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:10px 16px;margin:0 0 14px}
+.prompt b{color:var(--muted);font-size:12px;text-transform:uppercase;letter-spacing:.06em;display:block}
+
+/* error anatomy */
+.anat{display:grid;gap:8px}
+.anat div{display:grid;grid-template-columns:190px minmax(0,1fr);gap:10px;font-size:16px;align-items:baseline}
+.anat code{justify-self:start}
+
+/* checklist */
+ul.check{list-style:none;margin:0;padding:0;display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px 18px}
+ul.check li{position:relative;padding:9px 12px 9px 40px;background:var(--surface);border:1px solid var(--border);border-radius:10px;font-size:clamp(15px,1.55vw,17px)}
+ul.check li:before{content:"";position:absolute;left:13px;top:12px;width:16px;height:16px;border:2px solid var(--accent);border-radius:4px}
+ul.check li small{display:block;color:var(--muted);font-size:.85em}
+
+/* diagram */
+svg.nm{width:100%;height:auto;max-height:40vh}
+svg.nm .ln{stroke:var(--border);stroke-width:2}
+svg.nm .hub{fill:var(--accent-soft);stroke:var(--accent);stroke-width:2}
+svg.nm .nd{fill:var(--surface);stroke:var(--muted);stroke-width:2}
+svg.nm text{fill:var(--text);font:600 15px -apple-system,BlinkMacSystemFont,sans-serif}
+svg.nm .lbl2{fill:var(--muted);font-weight:400;font-size:14px}
+svg.nm .sm{font-size:13px;font-weight:500}
+svg.nm .bad{fill:var(--bad);font-size:14px}
+svg.nm .good{fill:var(--good);font-size:14px}
+svg.gw{max-height:32vh;margin-bottom:12px}
+.flow{display:flex;flex-wrap:wrap;align-items:center;gap:10px;margin:4px 0 18px;font-size:clamp(15px,1.7vw,19px)}
+.flow .box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 14px;box-shadow:var(--shadow)}
+.flow .box.hl{border-color:var(--accent);background:var(--accent-soft)}
+.flow .box small{display:block;color:var(--muted);font-size:13px}
+.flow .arr{color:var(--muted)}
+
+/* watch list */
+.talks{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:12px}
+.talk{background:var(--surface);border:1px solid var(--border);border-radius:12px;padding:12px 14px}
+.talk .tt{font-weight:700;font-size:16px}
+.talk .tt a{color:var(--text);text-decoration:none;border-bottom:1px solid var(--border)}
+.talk .tt a:hover{border-color:var(--accent)}
+.talk .who{font-size:13px;color:var(--muted);margin:2px 0 6px}
+.talk .why2{font-size:14px;margin:0 0 8px}
+.talk .mo{display:flex;flex-wrap:wrap;gap:5px}
+.talk .mo a{font-size:12.5px;text-decoration:none;border:1px solid var(--border);border-radius:999px;padding:2px 9px;color:var(--text)}
+.talk .mo a b{color:var(--accent);font-variant-numeric:tabular-nums;margin-right:4px}
+.talk .mo a:hover{border-color:var(--accent)}
+
+/* bottom bar */
+.bottom{position:fixed;left:0;right:0;bottom:0;height:40px;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:0 16px;font-size:13px;color:var(--muted);border-top:1px solid var(--border);background:var(--bg);z-index:8}
+.bottom .nav{display:flex;gap:6px;align-items:center}
+.counter{font-variant-numeric:tabular-nums;min-width:56px;text-align:center}
+
+/* modal */
+dialog{border:1px solid var(--border);border-radius:16px;background:var(--surface);color:var(--text);padding:0;width:min(860px,calc(100vw - 32px));max-height:calc(100vh - 64px);box-shadow:0 20px 60px rgba(0,0,0,.3)}
+dialog::backdrop{background:rgba(0,0,0,.45)}
+dialog .dh{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 20px;border-bottom:1px solid var(--border);position:sticky;top:0;background:var(--surface)}
+dialog .dh h3{margin:0;font-size:18px;text-transform:none;letter-spacing:0;color:var(--text)}
+dialog .db{padding:16px 20px 22px;font-size:16px;overflow-y:auto}
+dialog .db p{margin:0 0 10px}
+dialog .db ul,dialog .db ol{margin:0 0 10px;padding-left:22px}
+dialog .db li{margin:3px 0}
+dialog .db table{font-size:15px;box-shadow:none;border:1px solid var(--border);margin-bottom:12px}
+dialog .db blockquote{font-size:16px;box-shadow:none;border:1px solid var(--border);border-left:4px solid var(--accent)}
+dialog .db pre.code{font-size:13.5px;box-shadow:none}
+dialog .db h4{margin:16px 0 6px;font-size:14px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted)}
+
+@media (max-width:860px){
+  body{font-size:16px}
+  .cols,.cols.wide-l,.cols3,.cols4,.agenda,.demo-grid,.talks,ul.check{grid-template-columns:minmax(0,1fr)}
+  .top .btn kbd,.bottom .keys{display:none}
+  table{display:block;overflow-x:auto}
+  .hide-sm{display:none}
+  ul.chg li{grid-template-columns:minmax(0,1fr)}
+  .anat div{grid-template-columns:minmax(0,1fr)}
+  .mrail div span{display:none}
+}
+@media (max-height:820px) and (min-width:861px){
+  .top{height:44px}.deck{inset:44px 0 34px 0}.bottom{height:34px}
+  .stage{padding:4px 0}
+  h2{font-size:clamp(22px,2.6vw,30px);margin-bottom:12px}
+  .eyebrow{margin-bottom:4px}
+  .mrail{margin-bottom:8px}
+  .why{padding:7px 14px;margin-bottom:10px;font-size:16px}
+  ul.chg{gap:6px} ul.chg li{padding:6px 12px}
+  ul.chg li b{font-size:16px} ul.chg li p{font-size:14px}
+  .hwline{margin-top:8px;padding:6px 12px;font-size:15px}
+  .so{margin-top:12px;padding:8px 14px;font-size:16px}
+  .more{margin-top:10px}
+  th,td{padding:7px 12px}
+  table{font-size:15px}
+  blockquote{padding:9px 16px;margin-bottom:12px;font-size:19px}
+  blockquote.small{font-size:16px}
+  .big{font-size:20px}
+  ul.points li{padding:4px 0 4px 22px;font-size:18px} ul.points li:before{top:15px}
+  ol.steps li{font-size:17px;padding:4px 0 4px 38px} ol.steps li:before{top:4px}
+  .card{padding:11px 14px}
+  pre.code{padding:9px 13px;font-size:13px}
+  svg.nm{max-height:34vh}
+  svg.gw{max-height:29vh;margin-bottom:8px}
+  .divider .num{font-size:72px}
+  .talk{padding:9px 12px}.talk .why2{margin-bottom:5px}
+}
+@media (max-height:740px) and (min-width:861px){
+  .mrail span{display:none} .mrail{margin-bottom:4px}
+  h2{font-size:24px;margin-bottom:10px}
+  ul.chg li p{font-size:13.5px}
+  .talks{gap:8px} .talk .mo a{padding:1px 8px}
+  .hwline{margin-top:6px;padding:4px 12px} .more{margin-top:6px} svg.gw{max-height:28vh;margin-bottom:6px} ul.chg{gap:4px} ul.chg li{padding:5px 12px}
+}
+@media print{
+  body{overflow:visible}
+  .top,.bottom,.progress{display:none!important}
+  .deck{position:static}
+  .slide{position:relative;display:block!important;page-break-after:always;height:auto}
+}
+/* n8n deck */
+ul.tl{list-style:none;margin:0 0 6px;padding:0;display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px}
+ul.tl li{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--border);border-radius:10px;padding:8px 12px;font-size:clamp(14px,1.45vw,16px)}
+ul.tl li b{display:block;color:var(--accent);font-variant-numeric:tabular-nums;font-size:13px;text-transform:uppercase;letter-spacing:.04em}
+ul.tl li.now{border-top-color:var(--accent)}
+.ladder .card{border-top:3px solid var(--accent)}
+.lead.woa{font-size:clamp(16px,1.6vw,19px);margin:0 0 6px;max-width:none}
+.axis{display:flex;justify-content:space-between;align-items:center;gap:12px;margin-top:10px;padding-top:8px;border-top:2px solid var(--accent);font-size:14px;color:var(--muted)}
+.axis span:first-child::before{content:"← "}.axis span:last-child::after{content:" →"}
+.ladder .card:nth-child(1){margin-top:42px}.ladder .card:nth-child(2){margin-top:28px}.ladder .card:nth-child(3){margin-top:14px}
+table.cases td{font-size:.92em}
+table.stack td{font-size:.86em;padding-top:6px;padding-bottom:6px}
+table.stack td:first-child{white-space:nowrap}
+table.ver td{font-size:.88em;padding-top:6px;padding-bottom:6px;line-height:1.35}
+table.ver td:first-child{width:150px}
+table.ver td:nth-child(2){width:31%}
+table.ver td.arrow{width:22px}
+table.ver td:first-child .muted{display:block;font-size:.88em}
+ul.vchg{list-style:none;margin:0;padding:0}
+ul.vchg li{display:grid;grid-template-columns:70px minmax(0,1fr);gap:6px;align-items:baseline;margin:1px 0}
+ul.vchg .pill{justify-self:start;font-size:11px;padding:1px 7px}
+table.ver tr.hl td{background:var(--accent-soft)}
+table.ver tr.hl td:first-child b{color:var(--accent)}
+@media (max-width:860px){ ul.tl{grid-template-columns:minmax(0,1fr)} .ladder .card{margin-top:0!important} }
+@media (max-height:820px) and (min-width:861px){ ul.tl li{padding:6px 10px} .ladder .card:nth-child(1){margin-top:24px}.ladder .card:nth-child(2){margin-top:16px}.ladder .card:nth-child(3){margin-top:8px} }
+
+/* rework v10 */
+.wfa{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:10px;margin:0 0 14px}
+.wfa>div{background:var(--surface);border:1px solid var(--border);border-top:3px solid var(--accent);border-radius:10px;padding:9px 12px;font-size:15px}
+.wfa b{display:block;font-size:13px;text-transform:uppercase;letter-spacing:.05em;color:var(--accent);margin-bottom:2px}
+table.land td{font-size:.9em;padding-top:7px;padding-bottom:7px}
+table.land tr.hl td{background:var(--accent-soft)}
+table.land td:first-child{width:22%}
+table.biz td{font-size:.9em}
+table.biz td:last-child{width:30%}
+.blocks{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:12px}
+.blocks .card h3{margin-bottom:4px}
+.blocks .card p{font-size:15px}
+.blocks .card code{font-size:.82em}
+.runrow{display:grid;grid-template-columns:minmax(0,1.25fr) minmax(0,1fr);gap:18px;align-items:center}
+.runrow ol.steps li{font-size:16px;padding:3px 0 3px 36px}
+.runrow ol.steps li:before{top:4px}
+svg.nm .step{fill:var(--accent);font-weight:700;font-size:14px}
+svg.nm .stepc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+svg.nm .ai{stroke:var(--accent);stroke-width:2;stroke-dasharray:6 4}
+svg.nm .main{stroke:var(--text);stroke-width:2}
+svg.nm .sock{fill:var(--accent);font-size:12px;font-family:ui-monospace,Menlo,monospace;font-weight:500}
+table.lc td{font-size:.88em;padding-top:6px;padding-bottom:6px}
+table.lc td code{font-size:.85em}
+.loop{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:15px;margin:10px 0 0}
+.loop .box{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:6px 12px}
+.loop .box.lc{border-color:var(--info);background:var(--info-bg)}
+.loop .box.n8{border-color:var(--accent);background:var(--accent-soft)}
+.loop .arr{color:var(--muted)}
+table.trade td{font-size:.86em;padding-top:6px;padding-bottom:6px}
+table.trade td:first-child{white-space:nowrap;font-weight:700}
+table.trade td:last-child{color:var(--text)}
+.task{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:10px;margin:0 0 10px}
+.task>div{background:var(--surface);border:1px solid var(--border);border-radius:10px;padding:8px 12px;font-size:15px}
+.task b{display:block;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+table.tp td{font-size:.86em;padding-top:6px;padding-bottom:6px}
+table.tp td:first-child{width:30%}
+.mock .card ol{margin:0;padding-left:20px;font-size:15px}
+.mock .card li{margin:4px 0}
+.mock .card li small{display:block;color:var(--muted)}
+.ba{display:grid;grid-template-columns:90px minmax(0,1fr);gap:8px 12px;align-items:center;margin:0 0 10px}
+.ba .tag{font-size:12px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;text-align:right}
+.ba .tag.b{color:var(--bad)}.ba .tag.a{color:var(--good)}
+.ba .flow{margin:0}
+.ba .flow .box{padding:6px 12px;font-size:15px}
+.ba .flow .box.bad{border-color:var(--bad);background:var(--bad-bg)}
+.problem{background:var(--surface);border:1px solid var(--border);border-left:4px solid var(--bad);border-radius:0 12px 12px 0;padding:8px 16px;margin:0 0 12px;font-size:clamp(15px,1.6vw,18px)}
+.problem .lbl{color:var(--bad)}
+svg.wf{max-height:30vh;margin-bottom:10px}
+svg.wf .llm{fill:var(--info-bg);stroke:var(--info);stroke-width:2}
+.demo-grid.two{grid-template-columns:repeat(2,minmax(0,1fr))}
+.agenda.four{grid-template-columns:repeat(2,minmax(0,1fr))}
+.evflow{margin:0 0 12px}
+.evflow .box{font-size:15px;padding:6px 12px}
+table.evm td{font-size:.84em;padding-top:5px;padding-bottom:5px}
+table.evm td:first-child{width:34%;font-weight:700}
+.ev .card ul{font-size:15px}
+.ev .card p{font-size:15px}
+.score{display:flex;flex-wrap:wrap;align-items:center;gap:8px;font-size:15px;margin:12px 0 0;padding:8px 14px;border:1px dashed var(--border);border-radius:10px}
+.score b.n{font-size:20px;color:var(--accent);font-variant-numeric:tabular-nums}
+.score b.n.dn{color:var(--bad)}
+svg.arch{max-height:none;margin:4px 0 10px}
+svg.arch .bus{stroke:var(--accent);stroke-width:2;fill:none}
+.quotes blockquote{margin:6px 0 0;font-size:16px}
+table.gov td{font-size:.84em;padding-top:6px;padding-bottom:6px}
+table.gov td:first-child{width:21%;font-weight:700}
+table.gov td:last-child{width:19%}
+.ship .card ul{font-size:15px}
+table.mem td{font-size:.84em;padding-top:6px;padding-bottom:6px}
+table.mem td:first-child{width:30%}
+.memk{margin:10px 0 0;font-size:15px;padding:8px 14px;border:1px dashed var(--border);border-radius:10px}
+.memk b{color:var(--accent)}
+table.ep td{font-size:.84em;padding-top:6px;padding-bottom:6px}
+table.ep td:first-child{width:24%}
+table.ep td:last-child{width:27%}
+.planline{margin:12px 0 0;font-size:15px;color:var(--muted)}
+.planline b{color:var(--text)}
+@media (max-width:860px){ .agenda.four{grid-template-columns:minmax(0,1fr)} .wfa,.blocks,.runrow,.task,.demo-grid.two{grid-template-columns:minmax(0,1fr)} .ba{grid-template-columns:minmax(0,1fr)} .ba .tag{text-align:left} }
+@media (max-height:820px) and (min-width:861px){ .wfa>div,.blocks .card{padding:7px 11px} .wfa{margin-bottom:10px} .problem{padding:6px 14px;margin-bottom:8px} svg.wf{max-height:27vh} }
+</style>
+</head>
+<body>
+<div class="progress" id="progress"></div>
+<header class="top">
+  <nav class="tracker" id="tracker" aria-label="Lecture parts"></nav>
+  <div class="controls">
+    <button class="btn" id="themeBtn" title="Light / dark theme">Theme<kbd>T</kbd></button>
+  </div>
+</header>
+
+<main class="deck" id="deck">
+<!-- ============ OPENING ============ -->
+
+<section class="slide title-slide" data-part="0">
+  <div class="stage">
+    <p class="eyebrow">AIDev L2 · Module 1 · n8n</p>
+    <h1>n8n: workflow automation<br>with AI inside</h1>
+    <p class="lead">What n8n is, why it exists as a product and as a business, how it works inside, and what companies build with it.</p>
+    <div class="ideas">
+      <div><b>Idea 1</b>n8n sits between closed SaaS and your own code: a visual flow, code where you need it, hosted next to your data.</div>
+      <div><b>Idea 2</b>Steps you can name go into the workflow. An LLM goes only where you can't name them.</div>
+      <div><b>Idea 3</b>Guarantees come from nodes, not the prompt: a JSON check, an IF rule, an approval step.</div>
+      <div><b>Idea 4</b>n8n has limits: the licence, Git, load, the number of tools on one agent.</div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-part="0">
+  <div class="stage">
+    <p class="eyebrow">Agenda</p>
+    <h2>Four parts: from what n8n is to what companies build with it</h2>
+    <div class="agenda four">
+      <button data-goto="1"><span class="n">1</span><span><span class="t">What n8n is</span><span class="d">What a workflow is, workflow or agent, the product and the business, how versions changed.</span></span></button>
+      <button data-goto="2"><span class="n">2</span><span><span class="t">How it works</span><span class="d">Workflows as data, the stack, scaling, AI nodes on LangChain, testing, shipping, governance.</span></span></button>
+      <button data-goto="3"><span class="n">3</span><span><span class="t">Strengths and costs</span><span class="d">What you get, what you pay, how teams live with it.</span></span></button>
+      <button data-goto="4"><span class="n">4</span><span><span class="t">What companies build</span><span class="d">Case map, our ticket chain, then a live run.</span></span></button>
+    </div>
+  </div>
+</section>
+<section class="slide divider" data-part="1" data-label="What n8n is">
+  <div class="stage">
+    <div class="num">01</div>
+    <h1>What n8n is and why it exists</h1>
+    <div class="inpart">
+      <div>What a workflow is<small>and the engines that run one</small></div>
+      <div>Workflow or agent<small>one test that decides</small></div>
+      <div>The product goal<small>the gap between closed SaaS and your own code</small></div>
+      <div>The business goal<small>how n8n makes money</small></div>
+      <div>How it changed<small>from the licence to 2.0 and 3.0</small></div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · What a workflow is</p>
+    <h2>A workflow is a process written down: a trigger, steps, rules, and an execution engine that tracks runs, manages state, and supports recovery according to its capabilities and configuration</h2>
+    <div class="wfa">
+      <div><b>Trigger</b>an event starts a run: a webhook, a schedule, a new email, a chat message</div>
+      <div><b>Steps</b>calls to systems and data transforms: read a ticket, call an API, write a row</div>
+      <div><b>Rules</b>branches, waits and approvals: if the amount is over the limit, ask a manager</div>
+      <div><b>Run log</b>every run is saved with its data: you see where it failed and retry from there</div>
+    </div>
+    <table class="land">
+      <thead><tr><th>Kind of engine</th><th>Examples</th><th>Who builds it</th><th>Typical job</th></tr></thead>
+      <tbody>
+        <tr class="hl"><td><b>Integration automation</b></td><td>Zapier, Make, Power Automate, <b>n8n</b></td><td>ops, analysts, developers; visual</td><td>glue between SaaS and internal systems, now with AI steps</td></tr>
+        <tr><td><b>Business processes (BPMN)</b></td><td>Camunda, Flowable</td><td>an analyst draws, developers implement</td><td>long processes with people in them: a loan approval, onboarding</td></tr>
+        <tr><td><b>Durable execution</b></td><td>Temporal, AWS Step Functions</td><td>developers, in code</td><td>backend processes that must survive crashes: payments, orders</td></tr>
+        <tr><td><b>Data pipelines</b></td><td>Airflow, Dagster, Prefect</td><td>data engineers, in code</td><td>scheduled batch jobs: load, clean, aggregate</td></tr>
+      </tbody>
+    </table>
+    <div class="so"><b>In practice</b>An engine, not a script, gives you retries, waits for hours or days, a log of every run, and a process that someone other than its author can read and change.</div>
+  </div>
+</section>
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · Workflow or agent</p>
+    <h2>If you can name the steps, it's a workflow; if you can't, it's an agent</h2>
+    <p class="lead woa">Each step up the ladder gives the model more freedom, and costs more: tokens, time, and tests that can't check one exact answer. So every part of a process goes on the lowest step that can handle it.</p>
+    <div class="cols4 ladder">
+      <div class="card"><h3>1 · Rule</h3><p>IF or Switch: code decides</p><p class="muted">the amount is over the limit → ask a manager</p></div>
+      <div class="card"><h3>2 · Classifier</h3><p>the model picks one label from a fixed list</p><p class="muted">a ticket → billing, account or bug</p></div>
+      <div class="card"><h3>3 · AI Agent</h3><p>the model picks which tools to call, and in what order</p><p class="muted">read the ticket, look up the account, answer or escalate</p></div>
+      <div class="card"><h3>4 · Code, LangGraph</h3><p>loops, state, long processes</p><p class="muted">beyond the canvas</p></div>
+    </div>
+    <div class="axis"><span>predictable, cheap, exact tests</span><span>flexible, costly, scored tests</span></div>
+    <div class="cols" style="margin-top:12px">
+      <blockquote class="small">if you can name out the steps, then it's for a workflow… If you can't name those steps… then it's an agent<cite>Liam McGarrigle, n8n · livestream “The Agent Left the Workflow”, 2026</cite></blockquote>
+      <blockquote class="small">it's much cheaper to use a simple if … and is 100% reliable<cite>Jan Oberhauser, n8n · Product Growth podcast, 2026</cite></blockquote>
+    </div>
+    <div class="so"><b>In practice</b>The ticket chain at the end of this session is a workflow with two agent steps, not one big agent: the steps around them can be named.</div>
+    <div class="more"><button data-detail="d-limits">Four limits where low-code stops being enough</button></div>
+  </div>
+</section>
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · Product goal</p>
+    <h2>Product goal: glue between systems that you can see and change, without SaaS lock-in or your own plumbing</h2>
+    <div class="cols3">
+      <div class="card"><h3>Zapier, Make</h3>
+        <ul>
+          <li>closed SaaS, nothing to host;</li>
+          <li>code only inside the vendor's sandbox;</li>
+          <li>no hosting next to your own data.</li>
+        </ul></div>
+      <div class="card"><h3>Your own code</h3>
+        <ul>
+          <li>as flexible as you want;</li>
+          <li>all the plumbing is yours: auth, retries, pagination;</li>
+          <li>usually only its author maintains it.</li>
+        </ul></div>
+      <div class="card accent"><h3>n8n</h3>
+        <ul>
+          <li>a visual editor for the flow;</li>
+          <li>JavaScript or Python in a Code node;</li>
+          <li>self-hosted, next to your data.</li>
+        </ul></div>
+    </div>
+    <p class="muted" style="margin-top:14px">Jan Oberhauser started n8n because the tools he tried for niche tasks in film production were too expensive, or not flexible enough (as TechCrunch put it in 2020).</p>
+    <div class="cols3 quotes">
+      <blockquote class="small">If the company goes bust or changes policy, you are in trouble<cite>Jan Oberhauser, n8n · TechCrunch, 2020</cite></blockquote>
+      <blockquote class="small">we not just added AI features. We actually allowed people to build AI powered applications with [n8n]<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+      <blockquote class="small">I don't know what LLM is going to win the race in the end … you can use whatever is best for your use case<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+    </div>
+    <div class="more"><button data-detail="d-origin">More from the founder and Thoughtworks</button></div>
+  </div>
+</section>
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · Business goal</p>
+    <h2>Business goal: give the core away for self-hosting, charge for hosting it and for running it across a company</h2>
+    <table class="biz">
+      <thead><tr><th>Edition</th><th>Hosting</th><th>Price</th><th>Adds</th><th>Who buys it, and what triggers the purchase</th></tr></thead>
+      <tbody>
+        <tr><td><b>Community</b></td><td>self-hosted</td><td>free, on GitHub</td><td>the full editor and every integration</td><td>a developer or a team with its own ops. Trigger: try it for free, keep the data inside</td></tr>
+        <tr><td><b>Starter, Pro</b></td><td>n8n Cloud</td><td>€20 and €50 a month<small>2.5K and 10K executions</small></td><td>nothing to run yourself</td><td>a small team with nobody to run servers. Trigger: no wish to host, back up and update n8n</td></tr>
+        <tr><td><b>Business</b></td><td>self-hosted</td><td>€667 a month<small>40K executions</small></td><td>SSO, Git, environments</td><td>a company where n8n has reached several teams. Trigger: a hot fix broke production, IT asks for SSO</td></tr>
+        <tr><td><b>Enterprise</b></td><td>either</td><td>on request</td><td>external secrets, log streaming</td><td>a large or regulated company. Trigger: a security review wants secrets in a vault and logs in the SIEM</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:8px;font-size:14px">Annual billing, per n8n.io/pricing, checked 30 Oct 2026. Every plan has unlimited users and workflows; the price depends on monthly executions, not on steps. Only production runs of the top workflow count: manual runs and sub-workflows are free. The last column is our reading of the plans, not n8n's wording.</p>
+    <p class="big" style="margin-top:12px"><b>Fair-code, not open source:</b> free for internal use; reselling n8n or letting your customers build workflows in it needs a separate agreement.</p>
+    <div class="more"><button data-detail="d-sul">What the licence allows</button></div>
+  </div>
+</section>
+<section class="slide" data-part="1">
+  <div class="stage">
+    <p class="eyebrow">Part 1 · How it changed</p>
+    <h2>Each version fixed what the last one exposed: 2.0 is secure by default, 3.0 rebuilds the base</h2>
+    <table class="path ver">
+      <thead><tr><th>Version</th><th>The problem</th><th></th><th>What changed</th></tr></thead>
+      <tbody>
+        <tr><td><b>Mar 2022</b><span class="muted">Licence</span></td><td>Free to self-host, but where does resale start?</td><td class="arrow">→</td><td>Sustainable Use License: free for internal use, no resale.</td></tr>
+        <tr><td><b>Jul 2023</b><span class="muted">1.0 · production</span></td><td>Not yet ready for “demanding production environments”.</td><td class="arrow">→</td><td>Python in the Code node, branch-by-branch execution, mandatory user accounts.</td></tr>
+        <tr><td><b>Apr 2025</b><span class="muted">1.88 · MCP</span></td><td>Agents need tools from outside; other agents want n8n as a tool.</td><td class="arrow">→</td><td>MCP Client Tool and MCP Server Trigger: MCP both ways.</td></tr>
+        <tr class="hl"><td><b>Dec 2025</b><span class="muted">2.0 · secure by default</span></td><td>Saving an active workflow changed production at once; user code could read n8n's secrets.</td><td class="arrow">→</td><td><ul class="vchg">
+          <li><span class="pill p-info">changed</span>Save ≠ Publish: Activate becomes Publish</li>
+          <li><span class="pill p-info">changed</span>Code runs in task runners, no env access</li>
+          <li><span class="pill p-bad">removed</span>Start node, Pyodide Python, MySQL as n8n's DB</li></ul></td></tr>
+        <tr class="hl"><td><b>27 Oct 2026</b><span class="muted">3.0 beta · foundation</span></td><td>Features ship every week; breaking fixes waited for a major version.</td><td class="arrow">→</td><td><ul class="vchg">
+          <li><span class="pill p-info">changed</span>self-hosting is Docker only, no npm</li>
+          <li><span class="pill p-info">changed</span>manual runs on workers; Code node timeout 1 min</li>
+          <li><span class="pill p-bad">removed</span>Function, Cron, Interval, AI Agent v1</li></ul></td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin:8px 0 0;font-size:14px">The money behind it: seed $1.5M (2020) → Series C $180M at $2.5B (Oct 2025) → SAP takes a stake at $5.2B (May 2026).</p>
+    <div class="so"><b>In practice</b>A tutorial from before Dec 2025 shows Activate and the Start node: check the version before you copy a workflow.</div>
+    <div class="more"><button data-detail="d-versions">2.0 and 3.0: the full list</button></div>
+  </div>
+</section>
+<section class="slide divider" data-part="2" data-label="How it works">
+  <div class="stage">
+    <div class="num">02</div>
+    <h1>How n8n works</h1>
+    <div class="inpart">
+      <div>A workflow is data<small>nodes, connections, items</small></div>
+      <div>The building blocks<small>triggers, nodes, expressions, credentials, executions</small></div>
+      <div>How it runs<small>one process, or a queue and workers</small></div>
+      <div>Where AI fits<small>an agent node, its memory, LangChain under it</small></div>
+      <div>How to test it<small>real problems, mocks for the model, n8n Evaluations</small></div>
+      <div>How to ship it<small>Git and a review, one endpoint, governance</small></div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Data model</p>
+    <h2>A workflow is JSON: nodes, connections, and items flowing between them</h2>
+    <div class="cols">
+      <pre class="code"><span class="c">// the support workflow (excerpt)</span>
+<span class="k">"nodes"</span>: [
+  { <span class="k">"name"</span>: <span class="s">"Classifier"</span>,
+    <span class="k">"type"</span>: <span class="s">"@n8n/n8n-nodes-langchain.agent"</span>,
+    <span class="k">"retryOnFail"</span>: true, <span class="k">"maxTries"</span>: 2 },
+  { <span class="k">"name"</span>: <span class="s">"Check classifier output"</span>,
+    <span class="k">"type"</span>: <span class="s">"n8n-nodes-base.code"</span> }
+],
+<span class="k">"connections"</span>: {
+  <span class="s">"Classifier"</span>: { <span class="k">"main"</span>: [[
+    { <span class="k">"node"</span>: <span class="s">"Check classifier output"</span> }
+  ]] }
+}</pre>
+      <div>
+        <div class="flow">
+          <div class="box">Trigger</div><span class="arr">→</span>
+          <div class="box hl">Node<small>[{json, binary?}]</small></div><span class="arr">→</span>
+          <div class="box">Node</div>
+        </div>
+        <ul class="points">
+          <li>Between nodes flows an array of items<small>each item is <code>{json}</code>, plus <code>binary</code> for files</small></li>
+          <li>Most nodes, AI Agent included, run once per item<small>10 rows from the database mean 10 LLM calls</small></li>
+          <li>A Code node runs once for all items by default</li>
+        </ul>
+      </div>
+    </div>
+    <div class="so"><b>In practice</b>A workflow is a file: you can generate it, review it and keep it in Git.</div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Building blocks</p>
+    <h2>Most of a workflow is triggers, integrations and logic; AI nodes are a few boxes among them</h2>
+    <div class="blocks">
+      <div class="card"><h3>Triggers</h3><p>Start a run: Webhook, Schedule, Form, Chat, an app event (a new row, a new email), MCP Server Trigger.</p><p class="muted">A workflow can have several.</p></div>
+      <div class="card"><h3>Action nodes</h3><p>2,000+ integrations: Slack, Jira, Postgres, Google Sheets. For anything else, HTTP Request.</p><p class="muted">Each one is a typed API call with auth built in.</p></div>
+      <div class="card"><h3>Logic nodes</h3><p>IF, Switch, Merge, Loop Over Items, Wait, Execute Workflow for sub-workflows, Code for JavaScript or Python.</p><p class="muted">Rules live here, not in a prompt.</p></div>
+      <div class="card"><h3>Expressions</h3><p>Any parameter can take data from earlier nodes: <code>{{ $json.email }}</code>, <code>{{ $('Classifier').item.json.category }}</code>.</p><p class="muted">The glue between nodes.</p></div>
+      <div class="card"><h3>Credentials</h3><p>Keys and OAuth tokens are stored once, encrypted with <code>N8N_ENCRYPTION_KEY</code>, and picked by name in a node.</p><p class="muted">The workflow JSON holds only a reference.</p></div>
+      <div class="card"><h3>Executions</h3><p>Every run is saved with each node's input and output. A failed run can trigger an error workflow.</p><p class="muted">Kept 14 days or up to 10,000 runs by default.</p></div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · What it's made of</p>
+    <h2>n8n is one Node.js app with a database; queue mode adds Redis and workers</h2>
+    <table class="stack">
+        <thead><tr><th>Part</th><th>What it is</th></tr></thead>
+        <tbody>
+          <tr><td><b>Server</b></td><td>Node.js and TypeScript; one codebase for main, workers and webhook processes</td></tr>
+          <tr><td><b>Editor</b></td><td>a Vue app; the canvas is Vue Flow</td></tr>
+          <tr><td><b>Database</b></td><td>SQLite, a file, by default; or Postgres. Holds workflows, credentials, every execution<small>MySQL was removed in 2.0</small></td></tr>
+          <tr><td><b>Redis</b></td><td>queue mode only: the broker that hands execution ids to workers, through the Bull queue library. Not a cache</td></tr>
+          <tr><td><b>Task runners</b></td><td>separate processes for Code nodes; Python needs the <code>n8nio/runners</code> image</td></tr>
+          <tr><td><b>Encryption key</b></td><td>made on first launch and saved in <code>~/.n8n</code>; in queue mode every worker and webhook process needs the same key</td></tr>
+        </tbody>
+      </table>
+    <div class="more"><button data-detail="d-arch">Two reference setups</button><button data-detail="d-gotchas">Things people trip over</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Running it</p>
+    <h2>On a laptop n8n is one process; in production it's a queue and workers you can add</h2>
+    <div class="cols" style="margin-bottom:12px">
+      <div class="card"><h3>Regular mode · the default</h3><p>One process serves the editor, listens to triggers and runs every execution. Enough for a laptop or a small team.</p><p class="muted">The catch: by default nothing limits how many runs it takes at once, and they all share that one process.</p></div>
+      <div class="card accent"><h3>Queue mode · for production</h3><p>The main process only accepts work and puts it in a queue; workers run it. Add workers to take more load.</p><p class="muted">Needs Redis as the broker and Postgres as the shared database; SQLite isn't recommended here.</p></div>
+    </div>
+    <div class="runrow">
+      <svg class="nm gw" viewBox="0 0 640 230" role="img" aria-label="Queue mode: a trigger reaches the main process, main puts an execution id into Redis, a worker takes it, runs the workflow and writes the result to Postgres; the editor reads results from Postgres.">
+        <rect class="nd" x="10" y="20" width="120" height="50" rx="8"/><text x="70" y="50" text-anchor="middle" class="sm">trigger</text>
+        <line class="ln" x1="130" y1="45" x2="180" y2="45"/>
+        <rect class="hub" x="180" y="15" width="140" height="60" rx="10"/><text x="250" y="42" text-anchor="middle">main</text><text x="250" y="62" text-anchor="middle" class="lbl2 sm">editor, timers</text>
+        <line class="ln" x1="320" y1="45" x2="370" y2="45"/>
+        <rect class="nd" x="370" y="20" width="110" height="50" rx="8"/><text x="425" y="42" text-anchor="middle">Redis</text><text x="425" y="61" text-anchor="middle" class="lbl2 sm">broker</text>
+        <line class="ln" x1="480" y1="45" x2="520" y2="45"/>
+        <rect class="hub" x="520" y="10" width="110" height="40" rx="8"/><text x="575" y="35" text-anchor="middle" class="sm">worker</text>
+        <rect class="hub" x="520" y="58" width="110" height="40" rx="8"/><text x="575" y="83" text-anchor="middle" class="sm">worker</text>
+        <line class="ln" x1="575" y1="98" x2="575" y2="160"/>
+        <line class="ln" x1="250" y1="75" x2="250" y2="160"/>
+        <rect class="nd" x="180" y="160" width="450" height="50" rx="8"/><text x="405" y="190" text-anchor="middle" class="sm">Postgres · workflows, credentials, every execution</text>
+        <circle class="stepc" cx="155" cy="25" r="11"/><text x="155" y="30" text-anchor="middle" class="step">1</text>
+        <circle class="stepc" cx="345" cy="25" r="11"/><text x="345" y="30" text-anchor="middle" class="step">2</text>
+        <circle class="stepc" cx="500" cy="25" r="11"/><text x="500" y="30" text-anchor="middle" class="step">3</text>
+        <circle class="stepc" cx="595" cy="130" r="11"/><text x="595" y="135" text-anchor="middle" class="step">4</text>
+      </svg>
+      <ol class="steps">
+        <li>A trigger fires: a webhook, a timer, a chat message</li>
+        <li>main stores the execution and puts its id in Redis</li>
+        <li>A free worker takes it and runs the workflow<small>10 executions at a time per worker by default</small></li>
+        <li>The worker writes each node's data to Postgres; the editor shows it from there</li>
+      </ol>
+    </div>
+    <div class="so"><b>In practice</b>Start in regular mode. Switching isn't a flag: you add Redis, move from SQLite to Postgres, share the key and run workers.</div>
+    <div class="more"><button data-detail="d-scale">Benchmark and limits</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · AI nodes</p>
+    <h2>An AI Agent is a cluster node: data flows through it left to right, and the model, tools and parser plug in from below</h2>
+    <div class="cols wide-l">
+      <svg class="nm" viewBox="0 0 640 300" role="img" aria-label="The Classifier from the support workflow. Main line: Build classifier input, Classifier agent, Check classifier output. Plugged in below the agent through typed sockets: OpenAI Chat Model on ai_languageModel, MCP get_ticket on ai_tool, the output parser on ai_outputParser, and an empty memory socket.">
+        <text x="10" y="18" class="lbl2 sm">main connection: items</text>
+        <rect class="nd" x="10" y="30" width="150" height="56" rx="10"/><text x="85" y="55" text-anchor="middle" class="sm">Build</text><text x="85" y="73" text-anchor="middle" class="sm">classifier input</text>
+        <line class="main" x1="160" y1="58" x2="225" y2="58"/>
+        <rect class="hub" x="225" y="26" width="190" height="64" rx="12"/><text x="320" y="55" text-anchor="middle">Classifier</text><text x="320" y="77" text-anchor="middle" class="lbl2 sm">AI Agent · root node</text>
+        <line class="main" x1="415" y1="58" x2="480" y2="58"/>
+        <rect class="nd" x="480" y="30" width="150" height="56" rx="10"/><text x="555" y="55" text-anchor="middle" class="sm">Check</text><text x="555" y="73" text-anchor="middle" class="sm">classifier output</text>
+        <line class="ai" x1="320" y1="90" x2="85" y2="168"/><line class="ai" x1="320" y1="90" x2="245" y2="168"/><line class="ai" x1="320" y1="90" x2="400" y2="168"/><line class="ai" x1="320" y1="90" x2="560" y2="168"/>
+        <text x="85" y="183" class="sock" text-anchor="middle">ai_languageModel</text>
+        <text x="245" y="183" class="sock" text-anchor="middle">ai_memory</text>
+        <text x="400" y="183" class="sock" text-anchor="middle">ai_tool</text>
+        <text x="560" y="183" class="sock" text-anchor="middle">ai_outputParser</text>
+        <rect class="nd" x="15" y="190" width="140" height="58" rx="10"/><text x="85" y="215" text-anchor="middle" class="sm">OpenAI Chat Model</text><text x="85" y="236" text-anchor="middle" class="lbl2 sm">which LLM</text>
+        <rect class="nd" x="175" y="190" width="140" height="58" rx="10" stroke-dasharray="5 4"/><text x="245" y="215" text-anchor="middle" class="sm">Memory</text><text x="245" y="236" text-anchor="middle" class="lbl2 sm">empty here</text>
+        <rect class="nd" x="330" y="190" width="140" height="58" rx="10"/><text x="400" y="215" text-anchor="middle" class="sm">MCP get_ticket</text><text x="400" y="236" text-anchor="middle" class="lbl2 sm">MCP Client Tool</text>
+        <rect class="nd" x="490" y="190" width="140" height="58" rx="10"/><text x="560" y="215" text-anchor="middle" class="sm">Output parser</text><text x="560" y="236" text-anchor="middle" class="lbl2 sm">JSON schema</text>
+        <text x="320" y="285" text-anchor="middle" class="lbl2 sm">sub-nodes pass a component to the agent, not data</text>
+      </svg>
+      <div>
+        <pre class="code"><span class="c">// connections in m1-support.json</span>
+<span class="s">"OpenAI Chat Model (classifier)"</span>:
+  { <span class="k">"ai_languageModel"</span>: [[{ <span class="k">"node"</span>: <span class="s">"Classifier"</span> }]] },
+<span class="s">"MCP get_ticket (classifier)"</span>:
+  { <span class="k">"ai_tool"</span>: [[{ <span class="k">"node"</span>: <span class="s">"Classifier"</span> }]] },
+<span class="s">"Classifier"</span>:
+  { <span class="k">"main"</span>: [[{ <span class="k">"node"</span>: <span class="s">"Check classifier output"</span> }]] }</pre>
+        <div class="card"><h3>What can be a tool</h3><p>Most integration nodes, another workflow, an HTTP request, an MCP server through MCP Client Tool. The other way round, MCP Server Trigger makes a workflow a tool for Claude Code.</p></div>
+      </div>
+    </div>
+    <div class="more"><button data-detail="d-mcp">MCP in n8n, n8n Agents</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Under the hood</p>
+    <h2>Under the AI nodes is LangChain.js: each box on the canvas is a LangChain object</h2>
+    <div class="cols wide-l">
+      <table class="lc">
+        <thead><tr><th>Node on the canvas</th><th>LangChain.js inside</th></tr></thead>
+        <tbody>
+          <tr><td><b>OpenAI Chat Model</b></td><td><code>new ChatOpenAI(…)</code> from <code>@langchain/openai</code></td></tr>
+          <tr><td><b>MCP Client Tool</b></td><td>each MCP tool becomes a <code>DynamicStructuredTool</code></td></tr>
+          <tr><td><b>Simple Memory</b></td><td><code>BufferWindowMemory</code>, the last k exchanges</td></tr>
+          <tr><td><b>Structured Output Parser</b></td><td>n8n's wrapper over a Zod-schema parser</td></tr>
+          <tr><td><b>AI Agent</b> (v3)</td><td><code>createToolCallingAgent</code>: the model decides the next tool call</td></tr>
+          <tr><td><b>Vector Store, Embeddings, Text Splitter</b></td><td>the same LangChain classes; RAG in module 2</td></tr>
+        </tbody>
+      </table>
+      <div>
+        <pre class="code"><span class="c">// what the Classifier amounts to (a sketch)</span>
+<span class="k">const</span> llm = <span class="k">new</span> ChatOpenAI({ model });
+<span class="k">const</span> tools = [getTicket];   <span class="c">// from MCP</span>
+<span class="k">const</span> agent = createToolCallingAgent(
+  { llm, tools, prompt });
+<span class="c">// parse the reply against the JSON schema</span></pre>
+        <p class="muted" style="font-size:14px">The package name says it too: <code>@n8n/n8n-nodes-langchain.agent</code>.</p>
+      </div>
+    </div>
+    <div class="loop">
+      <span class="muted">One agent step in v3:</span>
+      <div class="box lc">LangChain: model picks a tool</div><span class="arr">→</span>
+      <div class="box n8">n8n runs the tool node, logs it</div><span class="arr">→</span>
+      <div class="box lc">LangChain: model reads the result</div><span class="arr">→</span>
+      <div class="box">repeat until it answers</div>
+    </div>
+    <div class="so"><b>In practice</b>Agent, tool, memory and parser are LangChain concepts: LangGraph in module 3 uses the same ones.</div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Memory</p>
+    <h2>An agent forgets everything between runs; a memory node reloads the last few exchanges stored under a session key</h2>
+    <div class="cols wide-l">
+      <div class="card"><h3>One agent run with memory</h3>
+        <ol class="steps">
+          <li>Load the history for this session key<small>the last 5 exchanges by default: 10 messages</small></li>
+          <li>Build the prompt: system prompt + history + the new input<small>the system prompt isn't stored; it's rebuilt every run</small></li>
+          <li>Run the agent loop and its tools</li>
+          <li>Save the user message, the tool calls with their results, and the answer<small>tool messages count toward the 10, so they push old turns out</small></li>
+        </ol></div>
+      <div>
+        <table class="mem">
+          <thead><tr><th>Memory node</th><th>Where the history lives</th></tr></thead>
+          <tbody>
+            <tr><td><b>Simple Memory</b></td><td>inside the n8n process: lost on restart, dropped after an hour idle, doesn't work in queue mode</td></tr>
+            <tr><td><b>Postgres, Redis, MongoDB Chat Memory</b></td><td>your database: a table or collection <code>n8n_chat_histories</code>; Redis can expire sessions</td></tr>
+            <tr><td><b>Chat Memory Manager</b></td><td>not a store: reads, inserts or deletes messages, to clear a session or write a summary yourself</td></tr>
+          </tbody>
+        </table>
+        <p class="memk"><b>Session key.</b> With a Chat Trigger it's the chat's <code>sessionId</code>. With any other trigger, set it yourself: a user, thread or ticket id. A constant key gives every user one shared history.</p>
+      </div>
+    </div>
+    <div class="so"><b>In practice</b>Memory is chat history, not knowledge: facts that must last go into a database or a vector store the agent reads through a tool.</div>
+    <div class="more"><button data-detail="d-memory">Under the hood, and what trips people up</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Testing 1 of 4</p>
+    <h2>n8n has no test runner, so you test around it: small Code nodes, pinned data, a test copy, a check on the target system</h2>
+    <table class="tp">
+      <thead><tr><th>The problem</th><th>What to do</th><th>What n8n gives you</th></tr></thead>
+      <tbody>
+        <tr><td><b>No test runner inside n8n</b><small>tests live outside the workflow</small></td><td>keep Code nodes small; run their JavaScript as plain JS with any test runner, with fake <code>$input</code> and <code>$json</code></td><td>nothing built in; the workflow JSON holds the code you test</td></tr>
+        <tr><td><b>Debugging one node means rerunning all</b><small>and paying for every LLM call before it</small></td><td>freeze the output of earlier nodes and run only the next step</td><td>pinned data and Execute step<small>pinned data works only in manual runs, not in production</small></td></tr>
+        <tr><td><b>A test run touches real systems</b><small>it can send a real email or close a real ticket</small></td><td>give the test copy its own credentials and a test system; reset it before each run</td><td>credentials per instance; environments on Business+, or a second instance with CLI export and import</td></tr>
+        <tr><td><b>“Done” in the chat proves nothing</b><small>the agent's reply isn't the outcome</small></td><td>write the expected end state before the run; after it, check the target system</td><td>every execution keeps each node's data; a past run can be loaded into the editor to debug it<small>Debug in editor: registered Community or a paid plan</small></td></tr>
+        <tr><td><b>End-to-end runs from a script</b><small>the way users trigger it</small></td><td>call the trigger from the script, then read the execution</td><td>a webhook or chat trigger has a URL you can POST to</td></tr>
+      </tbody>
+    </table>
+    <div class="so"><b>In practice</b>Change one thing at a time and rerun the same inputs.</div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Testing 2 of 4</p>
+    <h2>Mock the model to test the wiring; to test its answers, climb from a vibe check to an LLM judge</h2>
+    <div class="cols mock">
+      <div class="card"><h3>Three ways to handle the model in tests</h3>
+        <ol>
+          <li><b>Pin the agent's output.</b> The next nodes get a fixed answer.<small>for debugging, manual runs only</small></li>
+          <li><b>A fake model behind the Base URL.</b> A small OpenAI-compatible server returns scripted replies; no key, no tokens.<small>for CI: checks connections, tool calls, parsers, not quality</small></li>
+          <li><b>The real model, same inputs, several runs.</b> The answer varies from run to run.<small>before a release, or after a prompt change</small></li>
+        </ol></div>
+      <div class="card accent"><h3>Three kinds of checks on the answers</h3>
+        <ol>
+          <li><b>Vibe check.</b> Use it yourself: chat with the agent, feed the classifier real inputs.<small>not automated; it shows what to check automatically later</small></li>
+          <li><b>Deterministic checks.</b> Were the tools called? Is the category right? Did retrieval find the right documents?<small>a yes or no per case; no model needed to judge</small></li>
+          <li><b>An LLM as a judge.</b> Does the answer say what the reference answer says?<small>for free text, where no exact match exists</small></li>
+        </ol></div>
+    </div>
+    <blockquote class="small">traditional testing… really assumes that your workflow is deterministic, right?<cite>JP van Oosten, n8n · “Evaluations in Agentic Workflows”, 2025</cite></blockquote>
+    <div class="so"><b>In practice</b>A mock checks the wiring and needs no model; checks 2 and 3 need the real model and a dataset: that's n8n Evaluations.</div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Testing 3 of 4 · Evaluations</p>
+    <h2>n8n Evaluations run the workflow over a dataset, one row at a time, and score each answer, so a prompt change becomes a number</h2>
+    <div class="flow evflow">
+      <span class="box">Data Table or Sheet<small>input + expected</small></span><span class="arr">→</span>
+      <span class="box hl">Evaluation Trigger<small>one row per run</small></span><span class="arr">→</span>
+      <span class="box">Edit Fields<small>row → input</small></span><span class="arr">→</span>
+      <span class="box">your workflow</span><span class="arr">→</span>
+      <span class="box hl">Set Outputs<small>answer → the row</small></span><span class="arr">→</span>
+      <span class="box hl">Set Metrics<small>scores</small></span>
+    </div>
+    <div class="cols ev">
+      <table class="evm">
+        <thead><tr><th>Metric</th><th>What it scores</th></tr></thead>
+        <tbody>
+          <tr><td>Correctness</td><td>an LLM judge: does the answer match the reference? 1–5</td></tr>
+          <tr><td>Helpfulness</td><td>an LLM judge: does it answer the question? 1–5</td></tr>
+          <tr><td>Categorization</td><td>the output equals the expected category: 1 or 0</td></tr>
+          <tr><td>String Similarity</td><td>how close the text is to the expected one: 0–1</td></tr>
+          <tr><td>Tools Used</td><td>the share of expected tools the agent called: 0–1</td></tr>
+          <tr><td>Custom</td><td>any number you compute, even in another workflow</td></tr>
+        </tbody>
+      </table>
+      <div class="card"><h3>What you get</h3>
+        <ul>
+          <li>the Evaluations tab: one line per run, the average of each metric, tokens and run time</li>
+          <li>a click from any row to its execution, to see why it scored low</li>
+          <li><b>Check If Evaluating</b>: a branch that skips side effects, like sending an email, in eval runs</li>
+          <li>the judge's prompt is editable: you decide what a 5 and a 4 mean</li>
+        </ul></div>
+    </div>
+    <p class="planline"><b>Plan:</b> running the dataset and writing outputs back: every plan, free self-hosted after you register the instance. Metrics: one workflow on free and Starter, unlimited on Pro and above.</p>
+    <div class="so"><b>In practice</b>Same dataset, one change at a time: the metric shows whether the change helped.</div>
+    <div class="more"><button data-detail="d-evals">Light and metric-based evaluation</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Testing 4 of 4 · When to run evals</p>
+    <h2>Run evals while you build, before you release, and in production, because models and users change under you</h2>
+    <div class="cols3 ev">
+      <div class="card"><h3>1 · While you build</h3>
+        <ul><li>the whole dataset after every prompt edit, not one chat</li>
+          <li>edge cases from day one: empty values, odd formats</li>
+          <li>fix the cases that break, then rerun</li></ul></div>
+      <div class="card"><h3>2 · Before you release</h3>
+        <ul><li>A/B two models or prompts: a dataset column picks the model through a Model Selector node</li>
+          <li>weigh quality against tokens and run time</li></ul></div>
+      <div class="card accent"><h3>3 · In production</h3>
+        <ul><li>catch regressions: cases that used to pass</li>
+          <li>copy real cases from executions into the dataset</li>
+          <li>rerun when a new model comes out: does it help or break?</li></ul></div>
+    </div>
+    <div class="score"><span class="muted">One dataset, three prompt versions, average Correctness:</span> <b class="n">4.2</b><span class="arr">→</span><b class="n dn">3.4</b><span class="muted">the prompt added “answer like a pirate, with a parrot joke”</span><span class="arr">→</span><b class="n">4.8</b></div>
+    <div class="cols ev" style="margin-top:12px">
+      <div class="card bad"><h3>The judge is a model too</h3>
+        <p>It needs a reference answer to compare with. Its scores vary: try to fool it on purpose before you trust it, and repeat a case several times.</p></div>
+      <div class="card"><h3>Keep the dataset frozen</h3>
+        <p>If a step reads live data, like a stock price, the expected answer goes stale. Feed that step a fixed copy during evals.</p></div>
+    </div>
+    <div class="so"><b>In practice</b>Each bad answer from production becomes a new row in the dataset.</div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · To production</p>
+    <h2>A workflow reaches production through Git and a review, not through edits in the production editor</h2>
+    <div class="ba">
+      <div class="tag b">Before</div>
+      <div class="flow"><span class="box">one instance for everything</span><span class="arr">→</span><span class="box">workflows copied into a “prod” folder</span><span class="arr">→</span><span class="box bad">bugs fixed straight in prod<small>dev falls behind, copies multiply, no versions, no backups</small></span></div>
+      <div class="tag a">After</div>
+      <div class="flow"><span class="box">dev instance<small>its own credentials</small></span><span class="arr">→ push →</span><span class="box hl">Git<small>pull request and review</small></span><span class="arr">→ pull →</span><span class="box">prod instance<small>protected: nobody edits it</small></span></div>
+    </div>
+    <blockquote class="small">we started to just hot fix everything in production<cite>Bach-Thi Dinh, Exxeta · “Test &amp; Production Deployment in n8n”, 2025</cite></blockquote>
+    <div class="cols ship">
+      <div class="card good"><h3>What travels through Git</h3>
+        <ul><li>workflows with tags, folders, projects</li>
+          <li>credentials and variables as stubs: the name and type, no values</li>
+          <li>Data Table schemas, without rows</li></ul></div>
+      <div class="card bad"><h3>What n8n won't do for you</h3>
+        <ul><li>merge: two people's changes to one workflow can't be combined</li>
+          <li>detect conflicts: a pull overwrites local changes, a push overwrites Git</li>
+          <li>review: it happens in GitHub or GitLab, not in n8n</li></ul></div>
+    </div>
+    <p class="planline"><b>Environments:</b> Business and Enterprise, self-hosted. <b>On free n8n:</b> <code>n8n export:workflow</code> → Git → <code>n8n import:workflow</code> on the second instance.</p>
+    <div class="so"><b>In practice</b>Changes go one way: dev → Git → prod. A bug is fixed in dev and shipped again.</div>
+    <div class="more"><button data-detail="d-envs">Four setups, and the catches</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Testing with one endpoint</p>
+    <h2>Slack sends an app's events to one URL; to test without touching prod, give each environment its own sender or replay real events</h2>
+    <div class="problem"><span class="lbl">The problem</span>The Slack app's Request URL points at prod n8n, so dev and test never see a real event. Telegram bots and WhatsApp have the same limit.</div>
+    <table class="ep">
+      <thead><tr><th>Option</th><th>How</th><th>Cost and risk</th></tr></thead>
+      <tbody>
+        <tr><td><b>A Slack app per environment</b></td><td>clone the app from its manifest; dev, test and prod each get their own app, channel and credentials</td><td>free; more apps to keep in sync</td></tr>
+        <tr><td><b>A second workspace, called “test”</b></td><td>a separate Slack workspace and a separate HubSpot account, each with its own webhooks</td><td>Exxeta paid for them; Slack sandboxes and HubSpot test accounts are free now; data has to be seeded</td></tr>
+        <tr><td><b>A router workflow with a switch</b></td><td>one workflow takes every webhook and only routes; in test mode it also sends a copy to test sub-workflows, or a mock in place of the real call</td><td>free, live data; but test runs on the prod instance, and the router becomes a single point of failure</td></tr>
+        <tr><td><b>Record and replay</b></td><td>take a real event from a past execution; pin it on the trigger or open it with Debug in editor; or POST it to the test webhook</td><td>free, no risk; the event is frozen, not live</td></tr>
+        <tr><td><b>Swap the URL by hand</b></td><td>unpublish, set the test URL in Slack, test, put the production URL back, publish</td><td>free; prod hears nothing while you test</td></tr>
+      </tbody>
+    </table>
+    <div class="so"><b>In practice</b>Replay recorded events day to day; when you need live events, give test its own sender, not a branch in prod.</div>
+    <div class="more"><button data-detail="d-endpoint">Slack's rules, and systems without the limit</button></div>
+  </div>
+</section>
+<section class="slide" data-part="2">
+  <div class="stage">
+    <p class="eyebrow">Part 2 · Governance</p>
+    <h2>Governance answers four questions; n8n gives you levers for each, and the rules around them are yours</h2>
+    <table class="gov">
+      <thead><tr><th>Question</th><th>Levers in n8n</th><th>Plan</th></tr></thead>
+      <tbody>
+        <tr><td>Who can change what</td><td>projects with Admin, Editor and Viewer roles; sign-in through SSO; a protected production instance; a review before publishing</td><td>Business+<small>Editor, Viewer, reviews: Enterprise</small></td></tr>
+        <tr><td>Where the secrets live</td><td>credentials encrypted with the instance key; shared as “can use”, so a colleague runs them without seeing the value; or kept in a vault such as HashiCorp Vault or AWS</td><td>sharing: Business+<small>vaults: Enterprise</small></td></tr>
+        <tr><td>What may run</td><td>Execute Command and Local File Trigger are off since 2.0; Code nodes can't read environment variables; MCP access is opened workflow by workflow; a person approves a tool call before it runs</td><td>every plan</td></tr>
+        <tr><td>What happened</td><td>each node's data in every run; workflow history; <code>n8n audit</code>, a report on risky nodes, open webhooks and old versions; log streaming to your SIEM</td><td>runs, audit: free<small>log streaming: Enterprise</small></td></tr>
+      </tbody>
+    </table>
+    <p class="planline"><b>Exxeta:</b> a playground for everyone; test and prod only after a basic n8n course and a data-compliance course. <b>A car maker they advised:</b> one instance per team, so no team sees another team's credentials, data or tools.</p>
+    <blockquote class="small">Environments are not just an technical design. It's organizational<cite>Bach-Thi Dinh, Exxeta · “Test &amp; Production Deployment in n8n”, 2025</cite></blockquote>
+    <div class="so"><b>In practice</b>The free edition logs every run; access, secrets and an audit trail across teams are what Business and Enterprise sell.</div>
+    <div class="more"><button data-detail="d-gov">Plans, and what the levers don't cover</button></div>
+  </div>
+</section>
+<section class="slide divider" data-part="3" data-label="Strengths and costs">
+  <div class="stage">
+    <div class="num">03</div>
+    <h1>What n8n gives you, and what it costs</h1>
+    <div class="inpart">
+      <div>What you get<small>and what you pay for it</small></div>
+      <div>How teams live with it<small>a known workaround for each cost</small></div>
+    </div>
+    <blockquote class="small">where the winners are going to lie is seeing what your agent can do, knowing what it's doing, seeing what went wrong, and being able to tweak it and fix it<cite>Liam McGarrigle, n8n · “Building Your Own Secure AI Workflows”, 2026</cite></blockquote>
+  </div>
+</section>
+<section class="slide" data-part="3">
+  <div class="stage">
+    <p class="eyebrow">Part 3 · Trade-offs</p>
+    <h2>n8n trades code-level control for speed and visibility; each cost has a known workaround</h2>
+    <table class="trade">
+      <thead><tr><th>Area</th><th>You get</th><th>You pay</th><th>How teams live with it</th></tr></thead>
+      <tbody>
+        <tr><td>Visibility</td><td>each node's data in every execution</td><td>a workflow is one JSON file; two people's changes can't be merged</td><td>one owner per workflow; export with the CLI and review in Git</td></tr>
+        <tr><td>Integrations</td><td>2,000+ nodes, plus HTTP Request</td><td>community nodes vary in quality; 3.0 turns unverified ones off</td><td>built-in nodes first, HTTP Request for the rest</td></tr>
+        <tr><td>Code</td><td>JavaScript or Python inside the workflow</td><td>sandboxed: no env access, 1-minute timeout in 3.0, tests live outside</td><td>heavy logic goes into a service or an MCP server that n8n calls</td></tr>
+        <tr><td>Hosting</td><td>self-hosted, next to your data</td><td>you patch it: CVE-2026-21858 scored CVSS 10.0</td><td>not exposed to the internet; updated on a schedule</td></tr>
+        <tr><td>Load</td><td>billing per execution, not per step; queue mode</td><td>no limit on data per node, so one big run can run out of memory</td><td>split big batches into sub-workflows</td></tr>
+        <tr><td>Licence</td><td>free for internal use</td><td>Git, environments, SSO are paid; a product on n8n needs a licence</td><td>check the licence before you sell anything built on it</td></tr>
+        <tr><td>Pace</td><td>new features every week</td><td>breaking changes are saved for major versions: 2.0 in Dec 2025, 3.0 a year later</td><td>pin the version; read the breaking changes before upgrading</td></tr>
+      </tbody>
+    </table>
+    <div class="more"><button data-detail="d-cve">CVE-2026-21858 “Ni8mare”</button></div>
+  </div>
+</section>
+<section class="slide divider" data-part="4" data-label="What companies build">
+  <div class="stage">
+    <div class="num">04</div>
+    <h1>What companies build with n8n</h1>
+    <div class="inpart">
+      <div>A map of five cases<small>the patterns that repeat</small></div>
+      <div>Our example<small>ticket triage: the chain, then a live run</small></div>
+    </div>
+  </div>
+</section>
+<section class="slide" data-part="4">
+  <div class="stage">
+    <p class="eyebrow">Part 4 · Case map</p>
+    <h2>Companies use n8n for the boring middle: requests, documents, approvals, monitoring</h2>
+    <table class="cases">
+      <thead><tr><th>Company</th><th>Task</th><th>Pattern</th><th>Result</th></tr></thead>
+      <tbody>
+        <tr><td><b>Icatu Seguros</b><small>insurance, Brazil</small></td><td>a broker assistant in WhatsApp</td><td>message → LLM → tool call → sub-workflow → internal API</td><td>a quote in under 40 s instead of about 5 min</td></tr>
+        <tr><td><b>Delivery Hero</b></td><td>unlocking employee accounts</td><td>request → the direct manager approves → Okta, Google, Jira, no LLM</td><td>~800 requests a month; 200 hours a month less locked out</td></tr>
+        <tr><td><b>Vodafone UK</b></td><td>monitoring security data feeds</td><td>every 5 min → check → triage → ticket, no LLM</td><td>5,000 person-days and £2.2M saved</td></tr>
+        <tr><td><b>Seguros Bolívar</b><small>insurance, Colombia</small></td><td>pre-authorising medical orders</td><td>document → Gemini → rules → approval chain</td><td>3–4 weeks → minutes, for many requests</td></tr>
+        <tr><td><b>Deda.Tech</b></td><td>IT automation from the ITSM: server provisioning, a CI export to Salesforce</td><td>ITSM → RabbitMQ → n8n → VMware, no LLM</td><td>a new workflow in 30 min instead of ~2 days</td></tr>
+      </tbody>
+    </table>
+    <p class="muted" style="margin-top:8px;font-size:14px">Figures as reported by each company in its n8n case study; not independently audited.</p>
+    <div class="so"><b>In practice</b>In most of these cases the LLM is one or two steps; the rest is integrations and rules.</div>
+    <div class="more"><button data-detail="d-icatu">Icatu: how it works</button><button data-detail="d-morecases">Four more cases</button></div>
+  </div>
+</section>
+<section class="slide" data-part="4">
+  <div class="stage">
+    <p class="eyebrow">Part 4 · Our example</p>
+    <h2>Example system: support triage. A ticket comes in; two agents sort it and answer it or escalate it</h2>
+    <div class="task">
+      <div><b>The task</b>A support desk gets tickets. Someone has to read each one, set a category and priority, then answer it or pass it on.</div>
+      <div><b>In</b>a ticket number from the chat. The ticket itself lives in the ticket system: the MCP server from the first half of this session.</div>
+      <div><b>Out</b>the ticket in the database: a category, a priority and status <code>answered</code>, or an escalation with the reason.</div>
+    </div>
+    <svg class="nm" viewBox="0 0 1100 280" role="img" aria-label="Chat Trigger, then a Code node that builds the input, then the Classifier agent, a Code node that checks its output, the Operator agent and a Code node that checks its output. Both agents call the support-tickets MCP server through supergateway.">
+      <text x="458" y="24" text-anchor="middle" class="lbl2 sm">system prompt</text>
+      <text x="826" y="24" text-anchor="middle" class="lbl2 sm">one role per agent</text>
+      <text x="642" y="24" text-anchor="middle" class="lbl2 sm">JSON schema</text>
+      <text x="1010" y="24" text-anchor="middle" class="lbl2 sm">JSON schema</text>
+      <line class="ln" x1="170" y1="70" x2="194" y2="70"/><line class="ln" x1="354" y1="70" x2="378" y2="70"/><line class="ln" x1="538" y1="70" x2="562" y2="70"/><line class="ln" x1="722" y1="70" x2="746" y2="70"/><line class="ln" x1="906" y1="70" x2="930" y2="70"/>
+      <rect class="nd" x="10" y="40" width="160" height="60" rx="10"/><text x="90" y="66" text-anchor="middle" class="sm">Chat Trigger</text><text x="90" y="86" text-anchor="middle" class="lbl2 sm">ticket number</text>
+      <rect class="nd" x="194" y="40" width="160" height="60" rx="10"/><text x="274" y="66" text-anchor="middle" class="sm">Code</text><text x="274" y="86" text-anchor="middle" class="lbl2 sm">build input</text>
+      <rect class="hub" x="378" y="40" width="160" height="60" rx="10"/><text x="458" y="66" text-anchor="middle" class="sm">Classifier</text><text x="458" y="86" text-anchor="middle" class="lbl2 sm">AI Agent</text>
+      <rect class="nd" x="562" y="40" width="160" height="60" rx="10"/><text x="642" y="66" text-anchor="middle" class="sm">Code</text><text x="642" y="86" text-anchor="middle" class="lbl2 sm">check output</text>
+      <rect class="hub" x="746" y="40" width="160" height="60" rx="10"/><text x="826" y="66" text-anchor="middle" class="sm">Operator</text><text x="826" y="86" text-anchor="middle" class="lbl2 sm">AI Agent</text>
+      <rect class="nd" x="930" y="40" width="160" height="60" rx="10"/><text x="1010" y="66" text-anchor="middle" class="sm">Code</text><text x="1010" y="86" text-anchor="middle" class="lbl2 sm">check output</text>
+      <line class="ln" x1="458" y1="100" x2="520" y2="180"/><line class="ln" x1="826" y1="100" x2="764" y2="180"/>
+      <text x="470" y="150" class="lbl2 sm" text-anchor="end">get_ticket</text>
+      <text x="812" y="150" class="lbl2 sm">get_ticket, update_ticket</text>
+      <rect class="nd" x="352" y="180" width="580" height="64" rx="10"/><text x="642" y="207" text-anchor="middle" class="sm">ticket system (MCP server) · refuses forbidden status changes</text><text x="642" y="230" text-anchor="middle" class="lbl2 sm">reached through the MCP Client Tool; supergateway serves the stdio server over HTTP</text>
+    </svg>
+    <div class="so"><b>In practice</b>Each agent gets one job and only the tools it needs: the Classifier reads and sorts, the Operator reads and writes. Code nodes between them catch bad JSON.</div>
+    <div class="more"><button data-detail="d-checks">What the check nodes do</button></div>
+  </div>
+</section>
+<section class="slide" data-part="4">
+  <div class="stage">
+    <span class="demo-tag">DEMO 1 · n8n · TICKET TRIAGE</span>
+    <h2>Live: the chain takes an ordinary ticket through both agents to the database</h2>
+    <div class="prompt"><b>Command</b><code>make n8n-run T=1</code></div>
+    <div class="demo-grid">
+      <div class="card"><h3>Steps</h3>
+        <ol class="steps">
+          <li>The script posts ticket 1 to the Chat Trigger; the Classifier sets account, low, confidence 0.92</li>
+          <li>The Operator answers it</li>
+          <li>The database: status <code>answered</code>; the Operator reports <code>write_status: applied</code>, its write went through</li>
+        </ol></div>
+      <div class="card"><h3>Watch for</h3>
+        <ul>
+          <li>the execution in the UI: node order, tool calls, each agent's output;</li>
+          <li>the database compared with the expectation written before the run.</li>
+        </ul></div>
+      <div class="card accent"><h3>What it proves</h3>
+        <p>Each agent has one job and hands on a fixed JSON shape.</p>
+        <p>The database, not the agent's reply, shows the outcome.</p></div>
+    </div>
+    <div class="more"><button data-detail="d-demo1">Setup, the check, ticket 3</button></div>
+  </div>
+</section>
+
+</main>
+
+<footer class="bottom">
+  <span class="keys">← → slides · 1–9 details · T theme · F full screen</span>
+  <div class="nav">
+    <button class="btn" id="prevBtn" aria-label="Previous slide">←</button>
+    <span class="counter" id="counter"></span>
+    <button class="btn" id="nextBtn" aria-label="Next slide">→</button>
+  </div>
+  <span></span>
+</footer>
+
+<dialog id="modal"><div class="dh"><h3 id="modalTitle"></h3><button class="btn" id="modalClose">Close<kbd>Esc</kbd></button></div><div class="db" id="modalBody"></div></dialog>
+
+<!-- ============ DETAILS ============ -->
+
+<template id="d-origin" data-title="Why n8n: in the founder's words">
+  <blockquote>If the company goes bust or changes policy, you are in trouble<cite>Jan Oberhauser, n8n · TechCrunch, 13 Mar 2020</cite></blockquote>
+  <blockquote>What we have built you can integrate and use forever<cite>Jan Oberhauser, n8n · TechCrunch, 13 Mar 2020</cite></blockquote>
+  <h4>Five years later: the bet on AI</h4>
+  <blockquote>we allowed people to do the things … in this kind of low code, no code way that was previously only possible writing Python scripts<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+  <blockquote>see developers more as the people that … create the guard rails for you, the people that empower you to build the things you actually want and need<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+  <blockquote>if people in a few years think about hey I have to build AI … the only thing that should come to mind is [n8n]<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+  <h4>The licence and the growth</h4>
+  <blockquote>we never call ourselves open source because we don't have an [OSI] approved open source license<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+  <blockquote>I'm not building [n8n] and giving it away for free because I'm a good person. Like I actually want to build a business around it.<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+  <blockquote>we kind of removed the lead goal<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025; marketing traded the lead target for adoption and the community</cite></blockquote>
+  <h4>An outside view</h4>
+  <blockquote>built for developers who want a self-hosted, extensible and code-controllable option<cite>Thoughtworks Technology Radar, Vol. 34, Nov 2025 · ring: Trial</cite></blockquote>
+</template>
+
+<template id="d-arch" data-title="Two reference setups: regular and queue mode">
+  <h4>1 · Regular mode: one process and a database</h4>
+  <svg class="nm arch" viewBox="0 0 800 215" role="img" aria-label="Regular mode: the browser and the triggers reach one n8n process, which serves the editor, listens to triggers and runs every execution, with a task runner for Code nodes; it stores everything in a SQLite file or Postgres and keeps the encryption key in the ~/.n8n volume.">
+    <rect class="nd" x="10" y="20" width="150" height="50" rx="8"/><text x="85" y="42" text-anchor="middle">browser</text><text x="85" y="61" text-anchor="middle" class="lbl2 sm">you, in the editor</text>
+    <rect class="nd" x="10" y="110" width="150" height="50" rx="8"/><text x="85" y="132" text-anchor="middle">triggers</text><text x="85" y="151" text-anchor="middle" class="lbl2 sm">webhook, timer, chat</text>
+    <line class="ln" x1="160" y1="45" x2="250" y2="80"/><line class="ln" x1="160" y1="135" x2="250" y2="110"/>
+    <rect class="hub" x="250" y="35" width="250" height="115" rx="12"/><text x="375" y="64" text-anchor="middle">n8n · one process</text>
+    <text x="375" y="88" text-anchor="middle" class="lbl2 sm">serves the editor and the API</text><text x="375" y="108" text-anchor="middle" class="lbl2 sm">listens to triggers</text><text x="375" y="128" text-anchor="middle" class="lbl2 sm">runs every execution</text>
+    <line class="ln" x1="375" y1="150" x2="375" y2="170"/>
+    <rect class="nd" x="285" y="170" width="180" height="36" rx="8"/><text x="375" y="193" text-anchor="middle" class="sm">task runner · Code nodes</text>
+    <line class="ln" x1="500" y1="80" x2="560" y2="80"/><line class="ln" x1="500" y1="130" x2="560" y2="168"/>
+    <rect class="nd" x="560" y="40" width="230" height="80" rx="8"/><text x="675" y="68" text-anchor="middle">SQLite file or Postgres</text><text x="675" y="89" text-anchor="middle" class="lbl2 sm">workflows, credentials,</text><text x="675" y="107" text-anchor="middle" class="lbl2 sm">every execution</text>
+    <rect class="nd" x="560" y="145" width="230" height="50" rx="8"/><text x="675" y="167" text-anchor="middle">~/.n8n volume</text><text x="675" y="186" text-anchor="middle" class="lbl2 sm">encryption key, files from runs</text>
+  </svg>
+  <ul>
+    <li>One container, <code>n8nio/n8n</code>, with a volume for <code>~/.n8n</code>: lose it and the credentials can't be decrypted.</li>
+    <li>SQLite by default; set <code>DB_TYPE=postgresdb</code> for a team, so backups and upgrades are a database job.</li>
+    <li>Set <code>N8N_CONCURRENCY_PRODUCTION_LIMIT</code>: by default nothing caps how many runs it takes at once.</li>
+  </ul>
+  <h4>2 · Queue mode: Redis, workers and a shared Postgres</h4>
+  <svg class="nm arch" viewBox="0 0 800 325" role="img" aria-label="Queue mode: a load balancer sends the editor to the main process and incoming webhooks to webhook processes; both store the execution in Postgres and put its id into Redis; workers take ids from Redis, run the workflow and write the result to the shared Postgres.">
+    <rect class="nd" x="10" y="20" width="140" height="50" rx="8"/><text x="80" y="42" text-anchor="middle">browser</text><text x="80" y="61" text-anchor="middle" class="lbl2 sm">the editor</text>
+    <rect class="nd" x="10" y="110" width="140" height="50" rx="8"/><text x="80" y="132" text-anchor="middle">triggers</text><text x="80" y="151" text-anchor="middle" class="lbl2 sm">incoming webhooks</text>
+    <line class="ln" x1="150" y1="45" x2="175" y2="78"/><line class="ln" x1="150" y1="135" x2="175" y2="102"/>
+    <rect class="nd" x="175" y="55" width="150" height="70" rx="8"/><text x="250" y="84" text-anchor="middle">load balancer</text><text x="250" y="105" text-anchor="middle" class="lbl2 sm">splits by path</text>
+    <line class="ln" x1="325" y1="80" x2="360" y2="46"/><line class="ln" x1="325" y1="100" x2="360" y2="131"/>
+    <rect class="hub" x="360" y="15" width="170" height="62" rx="10"/><text x="445" y="41" text-anchor="middle">main</text><text x="445" y="61" text-anchor="middle" class="lbl2 sm">editor, API, timers</text>
+    <rect class="hub" x="360" y="100" width="170" height="62" rx="10"/><text x="445" y="126" text-anchor="middle">webhook processes</text><text x="445" y="146" text-anchor="middle" class="lbl2 sm">optional, add more</text>
+    <path class="bus" d="M530 46 H548 M530 131 H548 M548 46 V230 M548 88 H568"/>
+    <rect class="nd" x="568" y="58" width="100" height="60" rx="8"/><text x="618" y="84" text-anchor="middle">Redis</text><text x="618" y="104" text-anchor="middle" class="lbl2 sm">queue of ids</text>
+    <line class="ln" x1="668" y1="88" x2="690" y2="30"/><line class="ln" x1="668" y1="88" x2="690" y2="80"/><line class="ln" x1="668" y1="88" x2="690" y2="130"/>
+    <rect class="hub" x="690" y="10" width="100" height="40" rx="8"/><text x="740" y="35" text-anchor="middle" class="sm">worker</text>
+    <rect class="hub" x="690" y="60" width="100" height="40" rx="8"/><text x="740" y="85" text-anchor="middle" class="sm">worker</text>
+    <rect class="hub" x="690" y="110" width="100" height="40" rx="8"/><text x="740" y="135" text-anchor="middle" class="sm">worker ×N</text>
+    <line class="ln" x1="740" y1="150" x2="740" y2="230"/>
+    <rect class="nd" x="360" y="230" width="430" height="50" rx="8"/><text x="575" y="260" text-anchor="middle" class="sm">Postgres · workflows, credentials, every execution</text>
+    <text x="10" y="250" class="lbl2 sm">main and webhook processes store the run</text>
+    <text x="10" y="270" class="lbl2 sm">and push its id; a free worker runs it</text>
+    <text x="400" y="310" text-anchor="middle" class="lbl2 sm">every process: the same N8N_ENCRYPTION_KEY · files from runs: S3 (Business+) or the database</text>
+  </svg>
+  <ul>
+    <li>Every process: <code>EXECUTIONS_MODE=queue</code>, <code>DB_TYPE=postgresdb</code>, the Redis host in <code>QUEUE_BULL_REDIS_HOST</code>, and the same <code>N8N_ENCRYPTION_KEY</code>.</li>
+    <li>Workers start with <code>n8n worker</code>, 10 runs each by default; add workers for more load.</li>
+    <li>Webhook processes start with <code>n8n webhook</code>; the load balancer sends <code>/webhook/*</code> to them and everything else to main.</li>
+    <li>More than one main process (multi-main): Enterprise only.</li>
+  </ul>
+  <p class="muted">Sources: docs.n8n.io, Docker installation, supported databases, queue mode, concurrency control, task runners, binary data. Checked 31 Oct 2026.</p>
+</template>
+<template id="d-gotchas" data-title="Things people trip over">
+  <table>
+    <thead><tr><th>What happens</th><th>Why, and what to do</th></tr></thead>
+    <tbody>
+      <tr><td>The webhook works in the editor and is silent in production</td><td>Two URLs: <code>/webhook-test/</code> listens for 120 s after “Listen for test event”; <code>/webhook/</code> works only after Save and Publish.</td></tr>
+      <tr><td>Behind a reverse proxy the webhook URL shows the wrong host</td><td>Set <code>N8N_WEBHOOK_URL</code> (it replaces <code>WEBHOOK_URL</code>, deprecated since 2.35) and <code>N8N_PROXY_HOPS=1</code>.</td></tr>
+      <tr><td>The schedule fires at the wrong hour</td><td><code>GENERIC_TIMEZONE</code> defaults to <code>America/New_York</code>.</td></tr>
+      <tr><td>The plan's execution limit runs out slower than expected</td><td>Only production runs of the top workflow count. Manual runs, sub-workflows and error workflows don't.</td></tr>
+      <tr><td>A burst of webhooks takes the instance down</td><td>Regular mode has no concurrency limit by default; set <code>N8N_CONCURRENCY_PRODUCTION_LIMIT</code>.</td></tr>
+      <tr><td>Static data stays empty while testing</td><td><code>$getWorkflowStaticData</code> saves only in published runs started by a trigger. Docs suggest Data Tables instead.</td></tr>
+      <tr><td>Inserts into a Data Table start failing</td><td>All Data Tables share 200 MiB by default; self-hosted can raise <code>N8N_DATA_TABLES_MAX_SIZE_BYTES</code>.</td></tr>
+      <tr><td>A community node can't be installed from the UI</td><td>In queue mode community packages are installed by hand with npm, or listed in <code>N8N_COMMUNITY_PACKAGES</code>.</td></tr>
+      <tr><td>A self-hosted instance calls home</td><td>Anonymous telemetry is on by default; <code>N8N_DIAGNOSTICS_ENABLED=false</code> turns it off.</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Sources: docs.n8n.io, webhook development, reverse proxy, environment variables, concurrency control, executions, static data, data tables, community nodes, telemetry. Checked 30 Oct 2026.</p>
+</template>
+
+<template id="d-versions" data-title="n8n 2.0 and 3.0 · what changed">
+  <h4>2.0 · beta 8 Dec 2025, stable 15 Dec 2025 · “secure by default”</h4>
+  <ul>
+    <li><b>Publish instead of Activate.</b> In 1.x, saving an active workflow updated production at once. In 2.0, Save keeps your edits and Publish pushes them live. CLI: <code>publish:workflow</code>.</li>
+    <li><b>Task runners on by default.</b> All Code node executions run in a separate runner. The blog calls it the biggest change.</li>
+    <li><b>No env access from the Code node</b> by default: <code>N8N_BLOCK_ENV_ACCESS_IN_NODE=true</code>.</li>
+    <li><b>Python:</b> the Pyodide (WebAssembly) version is gone; native Python only through external runners (<code>n8nio/runners</code> image).</li>
+    <li><b>Off by default:</b> Execute Command and Local File Trigger. File nodes are limited to <code>~/.n8n-files</code>.</li>
+    <li><b>Removed:</b> the Start node (use Manual Trigger), MySQL/MariaDB as n8n's database, the old SQLite driver (the pooled one is up to 10× faster), <code>n8n --tunnel</code>.</li>
+    <li>Sub-workflows that wait (Wait, forms, human-in-the-loop) now return their final output to the parent.</li>
+  </ul>
+  <h4>3.0 · beta 27 Oct 2026, stable expected early December · the foundation</h4>
+  <blockquote>n8n 3.0 focuses on internal changes that improve reliability, stability and security<cite>n8n blog, “Introducing n8n 3.0”, 27 Oct 2026</cite></blockquote>
+  <ul>
+    <li><b>Docker only.</b> No runnable npm package; new security features depend on a container. One-line setup: <code>get.n8n.io</code>.</li>
+    <li><b>Queue mode:</b> manual executions always run on workers.</li>
+    <li><b>Code node timeout</b> drops from 5 minutes to 1 (<code>N8N_RUNNERS_TASK_TIMEOUT=60</code>).</li>
+    <li><b>Removed nodes:</b> Function, Function Item, Item Lists, Cron, Interval (use Schedule Trigger), the legacy OpenAI node, AI Agent v1 and its old modes (use Tools Agent), LangChain Code.</li>
+    <li><b>Security defaults:</b> encryption key rotation, a wider SSRF block list, unverified community packages off.</li>
+    <li><b>Upgrade:</b> one-way, no rollback; no jump from 1.x straight to 3.x. 2.x gets security fixes for 12 months after 3.0 stable.</li>
+  </ul>
+  <p class="muted">Sources: docs.n8n.io 2.0 and 3.0 breaking changes and one-line setup; blog.n8n.io “Introducing n8n 2.0” and “Introducing n8n 3.0” (the upgrade path is from the 3.0 post).</p>
+</template>
+
+<template id="d-sul" data-title="Sustainable Use License · what it allows">
+  <table>
+    <thead><tr><th>Use</th><th>Allowed?</th></tr></thead>
+    <tbody>
+      <tr><td>Automating your own company's internal processes</td><td><span class="pill p-good">yes, free</span></td></tr>
+      <tr><td>Personal or non-commercial use</td><td><span class="pill p-good">yes, free</span></td></tr>
+      <tr><td>Offering n8n itself to others as a hosted service</td><td><span class="pill p-bad">no</span></td></tr>
+      <tr><td>Embedding n8n in a paid product where your customers connect their own credentials</td><td><span class="pill p-warn">commercial or Embed licence</span></td></tr>
+    </tbody>
+  </table>
+  <p>“Fair-code” means the source is open to read and self-host, but the licence restricts commercial resale. That's why it isn't open source in the OSI sense.</p>
+  <p class="muted">Source: docs.n8n.io, Sustainable Use License.</p>
+</template>
+
+<template id="d-scale" data-title="Benchmark and limits">
+  <ul>
+    <li><b>Up to 220 executions per second</b> on a single instance, in n8n's own benchmark (it ran on a c5a.large). The workflow was trivial: Webhook → Edit Fields. That's throughput on an empty workflow, not a concurrency limit for a real one with an LLM.</li>
+    <li>In 2.x, manual runs go to the main process by default, even in queue mode.</li>
+  </ul>
+  <p class="muted">Sources: docs.n8n.io, performance benchmarking, queue mode, execution data.</p>
+</template>
+
+<template id="d-mcp" data-title="MCP in n8n, and n8n Agents">
+  <h4>MCP both ways, since 1.88 (April 2025)</h4>
+  <ul>
+    <li><b>MCP Client Tool</b>: an agent in n8n calls an external MCP server over Streamable HTTP or SSE.</li>
+    <li><b>MCP Server Trigger</b>: a workflow becomes a tool for Claude Code or Cursor. SSE and Streamable HTTP, no stdio. Authentication: None, Bearer or Header.</li>
+  </ul>
+  <blockquote>The node name is the tool name. The node description is the tool description.<cite>Liam McGarrigle, n8n · “Building Your Own Secure AI Workflows”, 2026</cite></blockquote>
+  <h4>n8n Agents</h4>
+  <p>Announced in October 2026: agents that live outside a workflow. According to the n8n team, they're built on the Vercel AI SDK.</p>
+  <blockquote>MCP is like the HTTP of … AI workflows<cite>Jan Oberhauser, n8n · Sequoia podcast “Building the Universal AI Automation Layer”, 2025</cite></blockquote>
+</template>
+
+<template id="d-cve" data-title="CVE-2026-21858 “Ni8mare”">
+  <ul>
+    <li>CVSS 10.0: unauthenticated remote code execution on self-hosted instances.</li>
+    <li>Fixed in 1.121.0; disclosed on 7 Jan 2026.</li>
+    <li>Censys saw about 26.5k instances exposed to the internet (exposed, not confirmed vulnerable).</li>
+  </ul>
+  <p class="muted">Source: Censys advisory CVE-2026-21858.</p>
+</template>
+
+<template id="d-limits" data-title="Four limits where low-code stops being enough">
+  <p>From the course guide on the low-code boundary, sections 1–3. These are rules of thumb from practice, not measurements.</p>
+  <table>
+    <thead><tr><th>Limit</th><th>Where it starts to hurt</th></tr></thead>
+    <tbody>
+      <tr><td>Tools on one agent</td><td>more than 4–5</td></tr>
+      <tr><td>Load</td><td>10–20 concurrent requests</td></tr>
+      <tr><td>Topology</td><td>about 20 nodes</td></tr>
+      <tr><td>Durability</td><td>3+ external calls, waiting for hours, an irreversible action</td></tr>
+    </tbody>
+  </table>
+  <h4>What you lose when you move to code</h4>
+  <ul>
+    <li>the visual log of every execution;</li>
+    <li>changing a step with one Save;</li>
+    <li>ready-made integrations;</li>
+    <li>Error Trigger, Wait, and approval in a single node.</li>
+  </ul>
+  <blockquote>with code you see the input and you see the output of the whole thing, but what really happened in there, you have no idea<cite>Jan Oberhauser, n8n · Product Growth podcast, 2026</cite></blockquote>
+</template>
+
+<template id="d-checks" data-title="What the check nodes do">
+  <ul>
+    <li>The Classifier retries once (2 tries) and continues on error.</li>
+    <li>If its JSON is still invalid, “Check classifier output” substitutes an empty classification: <code>category: "other"</code>, <code>confidence: 0</code>. The Operator then escalates.</li>
+    <li>“Check operator output” does the opposite: an invalid result stops the execution.</li>
+  </ul>
+  <p>Both checks are plain JavaScript in Code nodes, and <code>make test-n8n</code> runs them under Node with stub inputs.</p>
+</template>
+
+<template id="d-demo1" data-title="n8n demo 1 · setup, the check, ticket 3">
+  <h4>Setup</h4>
+<pre class="code">make n8n-up
+make db-reset db-seed
+make gateway          <span class="c"># separate terminal</span>
+make n8n-setup        <span class="c"># OPENAI_API_KEY, OPENAI_MODEL in .env</span></pre>
+  <p>n8n Cloud can't see localhost, so n8n 2.39.10 runs self-hosted in Docker; from the container, the server is at <code>host.docker.internal:8000/mcp</code>.</p>
+  <h4>The check after the run</h4>
+<pre class="code">python3 scripts/m1_checks/check_expected.py run1-regular data/support.sqlite</pre>
+  <p>The expected outcome is written in <code>m1/expected/</code> before the run; the script compares it with the database.</p>
+  <h4>Ticket 3, a weak request</h4>
+  <p>The model sets <code>confidence: 0.2</code> itself, the JSON is valid, and the Operator escalates the ticket.</p>
+</template>
+
+<template id="d-memory" data-title="Memory · under the hood, and what trips people up">
+  <h4>Under the hood</h4>
+  <ul>
+    <li>The AI Agent has one memory socket. History is loaded once at the start of a run and saved once at the end, as real chat messages in the prompt.</li>
+    <li>Simple Memory is LangChain's <code>BufferWindowMemory</code>; the database nodes put it over <code>PostgresChatMessageHistory</code>, <code>RedisChatMessageHistory</code> and the like. Postgres stores one JSON message per row: <code>id</code>, <code>session_id</code>, <code>message</code>.</li>
+    <li>“Context Window Length” counts exchanges, a user message and a reply, so 5 means 10 messages.</li>
+  </ul>
+  <h4>What trips people up</h4>
+  <table>
+    <thead><tr><th>What happens</th><th>Why</th></tr></thead>
+    <tbody>
+      <tr><td>“No session ID found”</td><td>the default key comes from a Chat Trigger; with a webhook or Telegram, choose “Define below” and set the key</td></tr>
+      <tr><td>The agent forgets after a deploy or under load</td><td>Simple Memory lives in one process; in queue mode or after a restart it's gone. Use Postgres or Redis</td></tr>
+      <tr><td>Two memory nodes don't share a chat</td><td>since Simple Memory 1.4 the key gets the memory node's name appended; to share, set the same key in each</td></tr>
+      <tr><td>The agent forgets what a tool returned</td><td>tool calls and results take places in the window; raise the window or keep tool output short</td></tr>
+      <tr><td>Each turn costs more tokens</td><td>the whole window is sent with every run</td></tr>
+      <tr><td>No memory socket on Basic LLM Chain</td><td>only the AI Agent takes memory</td></tr>
+    </tbody>
+  </table>
+  <p>Motorhead and Zep memory are deprecated and hidden. There's no memory node over Data Tables; a template builds one from regular nodes.</p>
+  <p class="muted">Sources: docs.n8n.io (Simple Memory, Chat Memory Manager); n8n source, packages/@n8n/nodes-langchain (nodes/memory, agents/Agent), main at 2.46.0; blog.n8n.io/ai-agent-memory. Checked 31 Oct 2026.</p>
+</template>
+<template id="d-envs" data-title="Four setups, and the catches">
+  <p>Four ways to tie instances to Git branches. Exxeta runs the first.</p>
+  <table>
+    <thead><tr><th>Setup</th><th>What it gives</th></tr></thead>
+    <tbody>
+      <tr><td>2 instances, 2 branches</td><td>dev and prod; code reaches prod only through a pull request</td></tr>
+      <tr><td>2 instances, 1 branch</td><td>dev and prod stay identical; you try a new n8n version or a package on dev first</td></tr>
+      <tr><td>1 instance, many branches</td><td>everyone works on a branch and opens a pull request; no merge inside n8n</td></tr>
+      <tr><td>1 instance, 1 branch</td><td>Git as a backup with history</td></tr>
+    </tbody>
+  </table>
+  <blockquote>Code goes only to production if you use pull requests.<cite>Bach-Thi Dinh, Exxeta · “Test &amp; Production Deployment in n8n”, 2025</cite></blockquote>
+  <blockquote>workflows cannot be merged<cite>Bach-Thi Dinh, Exxeta · “Test &amp; Production Deployment in n8n”, 2025</cite></blockquote>
+  <h4>The catches</h4>
+  <ul>
+    <li>A push sends the saved draft, not the published version. On prod, publish again or turn on auto-publish on pull.</li>
+    <li>Pulling a published workflow unpublishes and republishes it: a few seconds when its triggers don't listen.</li>
+    <li>A pull can delete data: a Data Table missing from Git is deleted with its rows.</li>
+    <li>Only the owner and admins can pull.</li>
+    <li>The price, in Exxeta's words: safety, oversight and collaboration, paid for with extra cost, a slower time to market and slower hot fixes.</li>
+  </ul>
+  <h4>On Community Edition</h4>
+  <p>No built-in Git. Export, commit, import; or a workflow that backs the instance up to a GitHub repository.</p>
+<pre class="code">n8n export:workflow --backup --output=workflows/   <span class="c"># → Git</span>
+n8n import:workflow --separate --input=workflows/  <span class="c"># on the second instance</span></pre>
+  <p class="muted">Sources: docs.n8n.io, source control and environments (push and pull), backup and restore; Bach-Thi Dinh's talk at n8n Builders Berlin, 2025. Checked 31 Oct 2026.</p>
+</template>
+<template id="d-endpoint" data-title="Slack's rules, and systems without the limit">
+  <blockquote>how do you ever test the workflow when Slack only has a single address?<cite>a question from the audience · “Test &amp; Production Deployment in n8n”, 2025</cite></blockquote>
+  <blockquote>We pay for a second HubSpot environment just to call it test.<cite>Bach-Thi Dinh, Exxeta · “Test &amp; Production Deployment in n8n”, 2025</cite></blockquote>
+  <blockquote>Slack only allows you to register a single webhook per app.<cite>n8n docs · Slack Trigger node</cite></blockquote>
+  <h4>Slack</h4>
+  <ul>
+    <li>One Request URL per app for events and one for interactivity; each slash command has its own URL.</li>
+    <li>The endpoint must answer within 3 seconds; Slack retries 3 times and turns event delivery off if 95% of events fail within an hour.</li>
+    <li>Developer sandboxes are free Enterprise orgs: 2 active at once, up to 8 users, 6 months each.</li>
+    <li>Socket Mode needs no public URL, but n8n's Slack Trigger doesn't support it; a community node does.</li>
+  </ul>
+  <h4>Systems without the limit</h4>
+  <ul>
+    <li>GitHub: up to 20 webhooks per event on one repository. Stripe: up to 16 destinations, separate sandboxes, and <code>stripe listen --forward-to</code> for a local machine.</li>
+    <li>A relay such as Hookdeck can copy one event to several URLs. With Slack only one copy can answer the check, and anything the test copy posts back goes out as the prod app.</li>
+  </ul>
+  <p class="muted">Sources: docs.n8n.io (Slack Trigger, Slack credentials, Telegram Trigger, WhatsApp Trigger, debug executions, data pinning); docs.slack.dev (app manifest, Events API, developer sandboxes); developers.hubspot.com (test accounts); docs.github.com; docs.stripe.com; hookdeck.com/docs. Options 1–3: Bach-Thi Dinh's talk at n8n Builders Berlin, 2025, and its Q&amp;A. Checked 31 Oct 2026.</p>
+</template>
+<template id="d-gov" data-title="Plans, and what the levers don't cover">
+  <table>
+    <thead><tr><th>Lever</th><th>Free self-hosted</th><th>Business</th><th>Enterprise</th></tr></thead>
+    <tbody>
+      <tr><td>Execution log, <code>n8n audit</code>, node blocking</td><td>yes</td><td>yes</td><td>yes</td></tr>
+      <tr><td>Workflow history</td><td>24 hours</td><td>not stated</td><td>full</td></tr>
+      <tr><td>Git and environments, protected instance</td><td>no, CLI export</td><td>yes</td><td>yes</td></tr>
+      <tr><td>SSO: SAML, LDAP / OIDC</td><td>no</td><td>SAML, LDAP</td><td>all three</td></tr>
+      <tr><td>Credential sharing</td><td>no</td><td>yes</td><td>yes</td></tr>
+      <tr><td>Vaults, log streaming, custom roles, workflow reviews, execution data redaction</td><td>no</td><td>no</td><td>yes</td></tr>
+    </tbody>
+  </table>
+  <h4>What the levers don't cover</h4>
+  <ul>
+    <li>A workflow review checks nodes and connections only. Credentials, variables, settings, Data Tables and sub-workflows change in production at once, even while a review is open.</li>
+    <li>“Audit” means two things: <code>n8n audit</code> is a free risk report; the audit log of who did what is streamed out on Enterprise.</li>
+    <li>There's no allow-list of models. The nearest levers: block a node package (Enterprise, preview) or exclude nodes with <code>NODES_EXCLUDE</code>.</li>
+    <li>Enforced 2FA covers email and password sign-in only, not SSO.</li>
+  </ul>
+  <p class="muted">The docs and the pricing page disagree on some Business details: roles, and whether environments are Business or Enterprise. Check n8n.io/pricing before you buy. Sources: docs.n8n.io (roles, credential sharing, external secrets, log streaming, security audit, workflow reviews, block nodes), n8n.io/pricing. Checked 31 Oct 2026.</p>
+</template>
+
+<template id="d-evals" data-title="Evaluations · light and metric-based">
+  <table>
+    <thead><tr><th></th><th>Light evaluation</th><th>Metric-based evaluation</th></tr></thead>
+    <tbody>
+      <tr><td>When</td><td>while you build</td><td>before a release and in production</td></tr>
+      <tr><td>Dataset</td><td>a few cases, by hand or generated</td><td>many cases, including real ones from production</td></tr>
+      <tr><td>Expected answers</td><td>optional</td><td>usually required</td></tr>
+      <tr><td>Result</td><td>outputs written next to each row; you read them</td><td>scores per metric in the Evaluations tab</td></tr>
+      <tr><td>Plan</td><td>every Cloud plan; self-hosted: free after registration, Business, Enterprise</td><td>Cloud Pro and Enterprise; one workflow on Starter and free self-hosted</td></tr>
+    </tbody>
+  </table>
+  <h4>What trips people up</h4>
+  <ul>
+    <li>One Evaluation Trigger per workflow; to test parts separately, evaluate their sub-workflows.</li>
+    <li>Set Metrics writes to the Evaluations tab, not to the dataset; Set Outputs writes to the dataset.</li>
+    <li>Correctness needs the expected answer; Helpfulness needs only the question and the answer.</li>
+    <li>Categorization is an exact match: “Spam” isn't “spam”.</li>
+    <li>Tools Used needs “Return intermediate steps” turned on in the AI Agent.</li>
+    <li>Cases run one at a time on free and Pro; 3 in parallel on Business, 5 on Enterprise. The trigger stops at 1,000 rows.</li>
+    <li>Each AI-based score is one more LLM call: it costs tokens and time.</li>
+  </ul>
+  <p class="muted">Docs disagree on self-hosted Business: one page lists metric-based evaluation for Enterprise only, the pricing page includes Business. Sources: docs.n8n.io, test and improve AI workflows (four pages), Evaluation and Evaluation Trigger nodes; n8n.io/pricing; n8n source, packages/nodes-base/nodes/Evaluation; JP van Oosten's talk at n8n Builders Berlin, 2025. Checked 31 Oct 2026.</p>
+  <blockquote>sometimes you need to add multiple times the same test case just to get like a little bit of more confidence<cite>JP van Oosten, n8n · “Evaluations in Agentic Workflows”, 2025</cite></blockquote>
+  <h4>The Guardrails node</h4>
+  <p>Checks the input or the output for personal data, jailbreak attempts and secrets; a failed check goes to a Fail branch. Available since 1.119.</p>
+</template>
+
+<template id="d-icatu" data-title="Icatu Seguros · a broker assistant in WhatsApp">
+  <ol>
+    <li>A broker writes in WhatsApp: text, a voice message or a photo.</li>
+    <li>The message reaches n8n through a WhatsApp webhook <span class="muted">(our reconstruction)</span>.</li>
+    <li>The broker is authenticated; the session is kept in Redis.</li>
+    <li>OpenAI parses the request and returns a tool call.</li>
+    <li>A function-routing mechanism calls a sub-workflow: a quote, commissions, payment status.</li>
+    <li>Guardrails and a fallback <span class="muted">(what the rules check is our reconstruction)</span>.</li>
+    <li>The sub-workflow calls Icatu's quotation API.</li>
+    <li>A simulation and a PDF go back to WhatsApp; the result is saved to the broker portal.</li>
+  </ol>
+  <blockquote>Nowadays, it would be three nodes … At the time it was ten.<cite>Icatu Seguros case study, n8n.io</cite></blockquote>
+  <p>Before the AI Agent node existed, the tool-call loop had to be built by hand.</p>
+  <p class="muted">Per the company's n8n case study: ~5 min → &lt;40 s, 7 weeks from idea to production, more than 1,000 brokers every day.</p>
+</template>
+
+<template id="d-morecases" data-title="Four more cases">
+  <table>
+    <thead><tr><th>Company</th><th>What they built</th></tr></thead>
+    <tbody>
+      <tr><td><b>Stepstone</b><small>HR-tech</small></td><td>700+ workflows. A daily batch of 60–70 contract mappings, 2–3 minutes each by hand, now takes about 20 seconds.</td></tr>
+      <tr><td><b>K33</b><small>crypto broker, ~10 people</small></td><td>KYC and AML: an AI model compares names and flags mismatches with a confidence score. Self-hosted, because a cloud service would become a sub-processor of customer data.</td></tr>
+      <tr><td><b>Trendyol</b><small>e-commerce</small></td><td>A seller bot: an orchestrator classifies the intent and calls one of about ten n8n workflows. Live for roughly 10% of 300,000 sellers.</td></tr>
+      <tr><td><b>XIBIX</b><small>IT consulting, ~120 people</small></td><td>HR answers from Confluence with embeddings in Azure; workflows exposed as “models” in Open WebUI. HR questions reduced by 50%+.</td></tr>
+    </tbody>
+  </table>
+  <p class="muted">Figures from each company's n8n case study.</p>
+</template>
+
+<script>
+(function(){
+  const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
+  const slides=$$(".slide"), n=slides.length;
+  let i=0;
+
+  const parts=[];
+  slides.forEach((s,k)=>{ if(s.classList.contains("divider")) parts.push({p:+s.dataset.part,label:s.dataset.label,at:k}); });
+  $("#tracker").innerHTML=parts.map(p=>`<button data-part="${p.p}"><b>${p.p}</b>${p.label}</button>`).join("");
+  const jumpTo=p=>{ const d=parts.find(x=>x.p===+p); if(d) show(d.at); };
+  $$("#tracker button").forEach(b=>b.onclick=()=>jumpTo(b.dataset.part));
+  $$("[data-goto]").forEach(b=>b.onclick=()=>jumpTo(b.dataset.goto));
+
+  function show(k){
+    i=Math.max(0,Math.min(n-1,k));
+    slides.forEach((s,j)=>s.classList.toggle("on",j===i));
+    const s=slides[i], p=+s.dataset.part;
+    $("#counter").textContent=(i+1)+" / "+n;
+    $("#progress").style.width=((i+1)/n*100)+"%";
+    $$("#tracker button").forEach(b=>{ const bp=+b.dataset.part; b.classList.toggle("on",bp===p); b.classList.toggle("done",bp<p); });
+    s.scrollTop=0;
+    if(location.hash!=="#"+(i+1)) history.replaceState(null,"","#"+(i+1));
+  }
+  function go(d){ show(i+d); }
+
+  function openDetail(id){
+    const tpl=document.getElementById(id); if(!tpl) return;
+    $("#modalTitle").textContent=tpl.dataset.title||"";
+    const body=$("#modalBody"); body.innerHTML=""; body.appendChild(tpl.content.cloneNode(true));
+    const m=$("#modal"); if(typeof m.showModal==="function") m.showModal(); else m.setAttribute("open","");
+  }
+  function closeModal(){ const m=$("#modal"); if(m.open){ if(typeof m.close==="function") m.close(); else m.removeAttribute("open"); } }
+
+  document.addEventListener("click",e=>{
+    const b=e.target.closest("[data-detail]"); if(b){ openDetail(b.dataset.detail); return; }
+    const o=e.target.closest("[data-open]"); if(o){ window.open(o.dataset.open,"_blank","noopener"); }
+  });
+  $("#modalClose").onclick=closeModal;
+  $("#modal").addEventListener("click",e=>{ if(e.target.id==="modal") closeModal(); });
+  $("#prevBtn").onclick=()=>go(-1);
+  $("#nextBtn").onclick=()=>go(1);
+
+  function toggleTheme(){ const r=document.documentElement; const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches; r.dataset.theme=dark?"light":"dark"; try{localStorage.setItem("m1-theme",r.dataset.theme)}catch(e){} }
+  $("#themeBtn").onclick=toggleTheme;
+
+  document.addEventListener("keydown",e=>{
+    if(e.metaKey||e.ctrlKey||e.altKey) return;
+    if($("#modal").open){ if(e.key==="Escape") closeModal(); return; }
+    const k=e.key;
+    if(k==="ArrowRight"||k==="PageDown"||k===" "){ e.preventDefault(); go(1); }
+    else if(k==="ArrowLeft"||k==="PageUp"){ e.preventDefault(); go(-1); }
+    else if(k==="Home"){ show(0); }
+    else if(k==="End"){ show(n-1); }
+    else if(k==="t"||k==="T"){ toggleTheme(); }
+    else if(k==="f"||k==="F"){ if(!document.fullscreenElement) document.documentElement.requestFullscreen&&document.documentElement.requestFullscreen(); else document.exitFullscreen(); }
+    else if(/^[1-9]$/.test(k)){ const btns=slides[i].querySelectorAll(".more button"); const b=btns[+k-1]; if(b) b.click(); }
+  });
+
+  try{ const th=localStorage.getItem("m1-theme"); if(th) document.documentElement.dataset.theme=th; }catch(e){}
+  window.addEventListener("hashchange",()=>{ const k=parseInt(location.hash.slice(1),10); if(k) show(k-1); });
+  const h=parseInt(location.hash.slice(1),10);
+  show(h?h-1:0);
+})();
+</script>
+</body>
+</html>

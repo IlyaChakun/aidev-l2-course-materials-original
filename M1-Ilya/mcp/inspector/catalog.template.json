@@ -1,0 +1,131 @@
+{
+  "mcpServers": {
+    "everything": {
+      "x-note": "1. Reference: every protocol feature on one server",
+      "type": "stdio",
+      "command": "mcp-server-everything",
+      "args": []
+    },
+    "filesystem": {
+      "x-note": "1. Reference: only the allowed directory",
+      "type": "stdio",
+      "command": "mcp-server-filesystem",
+      "args": ["/home/node/workspace"]
+    },
+    "fetch": {
+      "x-note": "1. Reference: a web page as Markdown",
+      "type": "stdio",
+      "command": "mcp-server-fetch",
+      "args": []
+    },
+    "git": {
+      "x-note": "1. Reference: git over one repository",
+      "type": "stdio",
+      "command": "mcp-server-git",
+      "args": ["--repository", "/home/node/workspace"]
+    },
+    "github": {
+      "x-note": "2. GitHub, read-only, token from .env",
+      "x-requires-env": ["GITHUB_TOKEN"],
+      "type": "stdio",
+      "command": "github-mcp-server",
+      "args": ["stdio", "--read-only"],
+      "env": { "GITHUB_PERSONAL_ACCESS_TOKEN": "${GITHUB_TOKEN}" }
+    },
+    "context7": {
+      "x-note": "3. Context7, remote, works without a key",
+      "type": "http",
+      "url": "https://mcp.context7.com/mcp"
+    },
+    "serena": {
+      "x-note": "4. Serena over the workspace project, one MCP tool per operation (as in the overview)",
+      "type": "stdio",
+      "command": "serena",
+      "args": ["start-mcp-server", "--project", "/home/node/workspace", "--context", "ide", "--agent-interface", "tools", "--enable-web-dashboard", "false", "--open-web-dashboard", "false"],
+      "connectionTimeout": 120000
+    },
+    "serena-repl": {
+      "x-note": "4. Serena 2.x default: every operation through one serena_repl tool (Code Mode)",
+      "type": "stdio",
+      "command": "serena",
+      "args": ["start-mcp-server", "--project", "/home/node/workspace", "--context", "ide", "--agent-interface", "repl", "--enable-web-dashboard", "false", "--open-web-dashboard", "false"],
+      "connectionTimeout": 120000
+    },
+    "playwright": {
+      "x-note": "5. Playwright, headless Chromium inside the container",
+      "type": "stdio",
+      "command": "playwright-mcp",
+      "args": ["--headless", "--isolated", "--browser", "chromium", "--executable-path", "/usr/bin/chromium", "--no-sandbox"]
+    },
+    "chrome-devtools": {
+      "x-note": "6. Chrome DevTools, headless Chromium inside the container",
+      "type": "stdio",
+      "command": "chrome-devtools-mcp",
+      "args": ["--headless", "--isolated", "--executablePath", "/usr/bin/chromium", "--chromeArg=--no-sandbox"]
+    },
+    "figma": {
+      "x-note": "7. Framelink Figma, token from .env",
+      "x-requires-env": ["FIGMA_API_KEY"],
+      "type": "stdio",
+      "command": "figma-developer-mcp",
+      "args": ["--stdio"],
+      "env": { "FIGMA_API_KEY": "${FIGMA_API_KEY}" }
+    },
+    "notion": {
+      "x-note": "8. Notion, remote, OAuth in the browser",
+      "type": "http",
+      "url": "https://mcp.notion.com/mcp"
+    },
+    "sentry": {
+      "x-note": "9. Sentry, remote, OAuth in the browser",
+      "type": "http",
+      "url": "https://mcp.sentry.dev/mcp"
+    },
+    "supabase": {
+      "x-note": "10. Supabase, remote, OAuth in the browser, read-only",
+      "type": "http",
+      "url": "https://mcp.supabase.com/mcp?read_only=true"
+    },
+    "postgres": {
+      "x-note": "11. Postgres MCP Pro over the demo database from compose.yaml",
+      "type": "stdio",
+      "command": "postgres-mcp",
+      "args": ["--access-mode=restricted"],
+      "env": { "DATABASE_URI": "postgresql://demo:demo@postgres:5432/support" }
+    },
+    "cloudflare": {
+      "x-note": "12. Cloudflare, the whole API through Code Mode, OAuth in the browser",
+      "type": "http",
+      "url": "https://mcp.cloudflare.com/mcp"
+    },
+    "cloudflare-docs": {
+      "x-note": "12. Cloudflare docs, remote, no login",
+      "type": "http",
+      "url": "https://docs.mcp.cloudflare.com/mcp"
+    },
+    "azure": {
+      "x-note": "13. Azure, lists tools without an account; calls need az login",
+      "type": "stdio",
+      "command": "azmcp",
+      "args": ["server", "start"]
+    },
+    "faq": {
+      "x-note": "Own server: the small one from own-server/",
+      "x-requires-path": "/home/node/own-server/faq_server.py",
+      "type": "stdio",
+      "command": "/opt/mcp/venv/bin/python",
+      "args": ["/home/node/own-server/faq_server.py"],
+      "protocolEra": "auto"
+    },
+    "support-tickets": {
+      "x-note": "Own server: support-tickets from smart-support, mounted at /sts",
+      "x-requires-path": "/sts/mcp_server/support",
+      "type": "stdio",
+      "command": "/opt/mcp/venv/bin/python",
+      "args": ["-m", "support"],
+      "cwd": "/sts/mcp_server",
+      "env": { "SUPPORT_DB_PATH": "/home/node/data/sts.sqlite" },
+      "protocolEra": "auto"
+    }
+  }
+}

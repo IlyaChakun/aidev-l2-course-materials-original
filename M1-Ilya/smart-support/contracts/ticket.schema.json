@@ -1,0 +1,27 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://smart-support.local/contracts/ticket.schema.json",
+  "title": "Ticket",
+  "description": "Тикет в том виде, в каком его отдаёт MCP-сервер (get_ticket). Версия контракта 1.0.",
+  "type": "object",
+  "additionalProperties": false,
+  "required": [
+    "schema_version", "id", "subject", "body", "customer_ref", "status",
+    "category", "priority", "score", "answer", "escalation_reason", "created_at", "last_modified"
+  ],
+  "properties": {
+    "schema_version": { "const": "1.0" },
+    "id": { "type": "integer", "minimum": 1 },
+    "subject": { "type": "string", "minLength": 1, "maxLength": 300 },
+    "body": { "type": "string", "description": "Может быть пустой строкой." },
+    "customer_ref": { "type": "string", "pattern": "^cust-[0-9]{3,}$", "description": "Псевдоним клиента, не персональные данные." },
+    "status": { "enum": ["new", "answered", "escalated"] },
+    "category": { "enum": ["billing", "technical", "account", "how_to", "complaint", "other", null] },
+    "priority": { "enum": ["low", "normal", "high", "urgent", null] },
+    "score": { "type": ["integer", "null"], "minimum": 0, "maximum": 100, "description": "round(confidence * 100) Классификатора; null пока тикет не классифицирован." },
+    "answer": { "type": ["string", "null"] },
+    "escalation_reason": { "type": ["string", "null"] },
+    "created_at": { "type": "string", "format": "date-time" },
+    "last_modified": { "type": "string", "format": "date-time" }
+  }
+}

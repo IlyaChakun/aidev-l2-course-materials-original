@@ -1,0 +1,650 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>MCP Spec Evolution</title>
+<style>
+:root{
+  --bg:#f7f6f2; --surface:#ffffff; --surface-2:#f0eee8; --border:#dedad0;
+  --text:#1d1c1a; --muted:#6b675f; --accent:#c4561f; --accent-soft:#f6e3d8;
+  --new:#1f7a4d; --new-bg:#dcf1e4;
+  --chg:#245ea8; --chg-bg:#dce8f7;
+  --exp:#8a5a00; --exp-bg:#fbedc9;
+  --dep:#9c4a00; --dep-bg:#fde1c8;
+  --rem:#a12a2a; --rem-bg:#f7d6d6;
+  --ext:#6b3fa0; --ext-bg:#ebdff7;
+  --act:#8d887d; --act-bg:#ece9e2;
+  --shadow:0 1px 2px rgba(0,0,0,.05),0 4px 16px rgba(0,0,0,.05);
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+    --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+    --new:#6fd39d; --new-bg:#173326; --chg:#8ab6ef; --chg-bg:#18273c;
+    --exp:#f0c25c; --exp-bg:#352a10; --dep:#f5a467; --dep-bg:#3a2513;
+    --rem:#f08a8a; --rem-bg:#3b1818; --ext:#c3a0ef; --ext-bg:#2b2040;
+    --act:#8a867c; --act-bg:#2a2925;
+    --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#151513; --surface:#1e1d1b; --surface-2:#262522; --border:#38362f;
+  --text:#ecebe6; --muted:#a29e94; --accent:#ef8a55; --accent-soft:#3b261b;
+  --new:#6fd39d; --new-bg:#173326; --chg:#8ab6ef; --chg-bg:#18273c;
+  --exp:#f0c25c; --exp-bg:#352a10; --dep:#f5a467; --dep-bg:#3a2513;
+  --rem:#f08a8a; --rem-bg:#3b1818; --ext:#c3a0ef; --ext-bg:#2b2040;
+  --act:#8a867c; --act-bg:#2a2925;
+  --shadow:0 1px 2px rgba(0,0,0,.3),0 4px 16px rgba(0,0,0,.3);
+}
+*{box-sizing:border-box}
+html,body{margin:0}
+body{background:var(--bg);color:var(--text);font:16px/1.55 -apple-system,BlinkMacSystemFont,"Segoe UI",Inter,Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-font-smoothing:antialiased}
+code{font:.88em ui-monospace,SFMono-Regular,Menlo,Consolas,monospace;background:var(--surface-2);padding:.08em .35em;border-radius:4px}
+a{color:var(--accent)}
+.wrap{max-width:1180px;margin:0 auto;padding:24px 16px 80px}
+header.top{display:flex;flex-wrap:wrap;gap:12px 24px;align-items:flex-end;justify-content:space-between;margin-bottom:18px}
+h1{font-size:clamp(24px,3.4vw,34px);line-height:1.15;margin:0 0 6px;letter-spacing:-.01em}
+.sub{color:var(--muted);margin:0;max-width:760px}
+button{font:inherit;color:inherit}
+.btn{border:1px solid var(--border);background:var(--surface);padding:6px 12px;border-radius:8px;cursor:pointer;font-size:14px}
+.btn:hover{border-color:var(--accent)}
+.btn:disabled{opacity:.4;cursor:default}
+.btn[aria-pressed="true"]{background:var(--accent-soft);border-color:var(--accent)}
+nav.views{display:flex;gap:4px;border-bottom:1px solid var(--border);margin:8px 0 22px;overflow-x:auto}
+nav.views button{border:0;background:none;padding:10px 14px;cursor:pointer;color:var(--muted);border-bottom:2px solid transparent;white-space:nowrap;font-size:15px}
+nav.views button.on{color:var(--text);border-bottom-color:var(--accent);font-weight:600}
+nav.views kbd{font-size:11px;color:var(--muted);border:1px solid var(--border);border-radius:4px;padding:0 4px;margin-left:6px}
+.view{display:none}.view.on{display:block}
+.card{background:var(--surface);border:1px solid var(--border);border-radius:14px;box-shadow:var(--shadow);padding:22px}
+.pill{font-size:12px;padding:2px 9px;border-radius:999px;font-weight:600;white-space:nowrap}
+.p-new{background:var(--new-bg);color:var(--new)}.p-chg{background:var(--chg-bg);color:var(--chg)}
+.p-exp{background:var(--exp-bg);color:var(--exp)}.p-dep{background:var(--dep-bg);color:var(--dep)}
+.p-rem{background:var(--rem-bg);color:var(--rem)}.p-ext{background:var(--ext-bg);color:var(--ext)}
+.p-act{background:var(--act-bg);color:var(--act)}
+.ref{font-size:11.5px;color:var(--muted);font-family:ui-monospace,Menlo,monospace;margin-left:6px;white-space:nowrap}
+.hint{font-size:13px;color:var(--muted)}
+.lbl{font-size:11px;font-weight:700;text-transform:uppercase;letter-spacing:.05em;margin-right:6px}
+.lbl.why{color:var(--accent)}.lbl.later{color:var(--chg)}
+
+/* path */
+.path{display:grid;gap:10px}
+.pr{display:grid;grid-template-columns:170px 1fr 1fr 28px;gap:0;background:var(--surface);border:1px solid var(--border);border-radius:12px;overflow:hidden;cursor:pointer;text-align:left;padding:0;box-shadow:var(--shadow)}
+.pr:hover{border-color:var(--accent)}
+.pr>div{padding:14px 16px}
+.pr .when{background:var(--surface-2)}
+.pr .when b{display:block;font-size:16px;font-variant-numeric:tabular-nums}
+.pr .when span{color:var(--muted);font-size:14px}
+.pr .when .cur{display:inline-block;font-size:11px;background:var(--accent);color:#fff;border-radius:10px;padding:0 7px;margin-top:4px}
+.pr h4{margin:0 0 4px;font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted)}
+.pr .prob{border-right:1px dashed var(--border)}
+.pr p{margin:0;font-size:15px}
+.pr .go{display:flex;align-items:center;justify-content:center;color:var(--muted);padding:0}
+.lede{font-size:18px;margin:0 0 18px;max-width:860px}
+
+/* events */
+.events{margin-top:30px}
+.events h3{font-size:15px;margin:0 0 10px}
+.ev{display:grid;grid-template-columns:118px 1fr;gap:4px 14px;padding:8px 0;border-top:1px solid var(--border);font-size:15px}
+.ev .when{color:var(--muted);font-variant-numeric:tabular-nums;font-size:14px}
+.ev.spec .what{font-weight:600}
+
+/* revisions */
+.rail{position:relative;display:grid;grid-template-columns:repeat(5,1fr);gap:8px;margin-bottom:22px}
+.rail:before{content:"";position:absolute;left:4%;right:4%;top:27px;height:2px;background:var(--border)}
+.stop{position:relative;background:none;border:0;cursor:pointer;text-align:center;padding:0 4px;display:flex;flex-direction:column;align-items:center;justify-content:flex-start}
+.dot{width:20px;height:20px;border-radius:50%;margin:18px auto 10px;background:var(--surface);border:3px solid var(--border);position:relative;z-index:1;transition:.15s}
+.stop.on .dot{border-color:var(--accent);background:var(--accent);transform:scale(1.25)}
+.stop .d{font-weight:700;font-size:15px;font-variant-numeric:tabular-nums}
+.stop .n{font-size:13px;color:var(--muted)}
+.stop.on .n{color:var(--accent)}
+.stop .cur{display:inline-block;font-size:11px;background:var(--accent);color:#fff;border-radius:10px;padding:0 7px;margin-top:4px}
+.rev-head{display:flex;flex-wrap:wrap;gap:10px 20px;justify-content:space-between;align-items:flex-start;margin-bottom:10px}
+.rev-head h2{margin:0;font-size:clamp(20px,2.6vw,26px)}
+.rev-head .tag{color:var(--muted);font-size:14px}
+.rev-side{display:flex;flex-direction:column;align-items:flex-end;gap:8px}
+.counts{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end}
+.driver{border-left:3px solid var(--accent);background:var(--accent-soft);padding:10px 14px;border-radius:0 8px 8px 0;font-size:16px;margin:0 0 14px}
+.groups{display:grid;grid-template-columns:repeat(auto-fit,minmax(300px,1fr));gap:14px}
+.group{border:1px solid var(--border);border-radius:10px;padding:12px 14px;background:var(--surface)}
+.group h3{margin:0 0 8px;font-size:14px;text-transform:uppercase;letter-spacing:.04em}
+.group ul{margin:0;padding:0;list-style:none}
+.group li{padding:7px 0;border-top:1px dashed var(--border);font-size:15px}
+.group li:first-child{border-top:0}
+.group li.plain{padding-left:18px}
+.group summary{cursor:pointer;list-style:none;padding-left:18px;position:relative}
+.group summary::-webkit-details-marker{display:none}
+.group summary:before{content:"▸";position:absolute;left:2px;top:0;color:var(--accent);transition:transform .15s}
+.group details[open]>summary:before{transform:rotate(90deg)}
+.group summary:hover{color:var(--accent)}
+.more{margin:6px 0 2px 18px;font-size:14px;color:var(--muted);display:grid;gap:4px}
+.hw{margin-top:16px;border:1px dashed var(--border);padding:10px 14px;border-radius:8px;font-size:14.5px;color:var(--muted)}
+.hw b{color:var(--text)}
+.pager{display:flex;justify-content:space-between;align-items:center;margin-top:16px;gap:8px}
+
+/* matrix */
+.legend{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px;align-items:center;font-size:13px;color:var(--muted)}
+.filters{display:flex;flex-wrap:wrap;gap:6px;margin-bottom:12px}
+.mx-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px;background:var(--surface)}
+table.mx{border-collapse:collapse;width:100%;min-width:760px;font-size:14px}
+.mx th,.mx td{padding:7px 8px;border-bottom:1px solid var(--border);text-align:center;vertical-align:middle}
+.mx thead th{background:var(--surface-2);font-size:13px;font-variant-numeric:tabular-nums}
+.mx th.f{text-align:left;font-weight:600;min-width:220px}
+.mx th.f:before{content:"▸";display:inline-block;width:14px;color:var(--accent);transition:transform .15s}
+.mx tr.open th.f:before{transform:rotate(90deg)}
+.mx td .c{display:inline-block;min-width:88px;padding:3px 6px;border-radius:6px;font-size:12px;font-weight:600}
+.mx td .c.none{color:var(--border);font-weight:400}
+.mx tr.grp th{background:var(--surface-2);text-align:left;font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.mx tr.grp th:before,.mx thead th.f:before{content:none}
+.mx tr.row{cursor:pointer}
+.mx tr.row:hover,.mx tr.open{background:var(--surface-2)}
+.mx tr.dim{opacity:.18}
+.mx tr.det td{text-align:left;background:var(--surface-2);padding:4px 14px 14px 30px}
+.hist{list-style:none;margin:0;padding:0;display:grid;gap:8px}
+.hist li{display:grid;grid-template-columns:96px 104px 1fr;gap:4px 10px;align-items:baseline;font-size:14px}
+.hist .rv{font-family:ui-monospace,Menlo,monospace;font-size:12px;color:var(--muted)}
+.hist .w{color:var(--muted);font-size:13.5px;margin-top:2px}
+
+/* arcs */
+.arcs{display:grid;gap:16px}
+.arc h3{margin:0 0 4px;font-size:18px}
+.arc .moral{color:var(--muted);margin:0 0 12px;font-size:15px}
+.steps{display:grid;grid-template-columns:repeat(5,1fr);gap:8px}
+.step{border:1px solid var(--border);border-radius:10px;padding:9px 10px;font-size:13.5px;background:var(--surface)}
+.step .sd{font-size:11.5px;color:var(--muted);font-variant-numeric:tabular-nums;font-weight:600;margin-bottom:3px}
+.step.empty{border-style:dashed;color:var(--muted);background:transparent}
+.step.k-new{border-color:var(--new)}.step.k-rem{border-color:var(--rem)}.step.k-dep{border-color:var(--dep)}.step.k-exp{border-color:var(--exp)}.step.k-ext{border-color:var(--ext)}.step.k-chg{border-color:var(--chg)}
+
+/* today */
+.sec{margin:0 0 26px}
+.sec>h2{font-size:20px;margin:0 0 4px}
+.sec>p.sub{margin-bottom:12px}
+.core{display:grid;grid-template-columns:repeat(auto-fit,minmax(250px,1fr));gap:12px}
+.core .card{padding:14px 16px}
+.core h3{margin:0 0 4px;font-size:15px}
+.core p{margin:0;font-size:14.5px;color:var(--muted)}
+table.tb{border-collapse:collapse;width:100%;font-size:14.5px;background:var(--surface)}
+.tb-wrap{overflow-x:auto;border:1px solid var(--border);border-radius:12px}
+.tb th,.tb td{padding:9px 12px;border-bottom:1px solid var(--border);text-align:left;vertical-align:top}
+.tb thead th{background:var(--surface-2);font-size:12px;text-transform:uppercase;letter-spacing:.05em;color:var(--muted)}
+.tb tr:last-child td{border-bottom:0}
+.tb td.muted{color:var(--muted)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:16px}
+.census{display:grid;grid-template-columns:auto 1fr;gap:6px 18px;align-items:baseline}
+.census .v{font-size:26px;font-weight:700;color:var(--accent);font-variant-numeric:tabular-nums;white-space:nowrap}
+.census .d{font-size:14.5px}
+.rules{margin:0;padding:0;list-style:none;counter-reset:r;display:grid;gap:10px}
+.rules li{counter-increment:r;display:grid;grid-template-columns:30px 1fr;font-size:15px}
+.rules li:before{content:counter(r);font-weight:700;color:var(--accent)}
+.rules li b{display:block}
+.rules li span{color:var(--muted);font-size:14.5px}
+.src{font-size:13px;color:var(--muted);margin-top:22px;border-top:1px solid var(--border);padding-top:12px}
+
+@media (max-width:820px){
+  .pr{grid-template-columns:1fr}
+  .pr .prob{border-right:0;border-bottom:1px dashed var(--border)}
+  .pr .go{display:none}
+  .two{grid-template-columns:1fr}
+}
+@media (max-width:720px){
+  .rail{grid-template-columns:repeat(5,minmax(0,1fr))}
+  .stop .n{display:none}
+  .stop .d{font-size:12px}
+  .steps{grid-template-columns:1fr}
+  .step.empty{display:none}
+  .ev{grid-template-columns:1fr}
+  .card{padding:16px}
+  .rev-side{align-items:flex-start}
+  .counts{justify-content:flex-start}
+  .pager .hint{display:none}
+  .hist li{grid-template-columns:1fr}
+}
+</style>
+</head>
+<body>
+<div class="wrap">
+  <header class="top">
+    <div>
+      <h1>How the MCP Spec Evolved</h1>
+      <p class="sub">From a protocol for local plugins (2024-11-05) to a stateless web protocol (2026-07-28): what changed in each revision, and why.</p>
+    </div>
+    <button class="btn" id="themeBtn" title="Light / dark theme">Theme</button>
+  </header>
+
+  <nav class="views" id="views">
+    <button data-v="path" class="on">The path<kbd>1</kbd></button>
+    <button data-v="timeline">Revisions<kbd>2</kbd></button>
+    <button data-v="matrix">Feature matrix<kbd>3</kbd></button>
+    <button data-v="arcs">Storylines<kbd>4</kbd></button>
+    <button data-v="today">Where things stand<kbd>5</kbd></button>
+  </nav>
+
+  <section class="view on" id="v-path">
+    <p class="lede">Twenty months, five revisions. Each one answered a concrete problem with the one before. Click a revision to see every change in it.</p>
+    <div class="path" id="path"></div>
+    <div class="events">
+      <h3>Around the spec: ecosystem and governance</h3>
+      <div id="events"></div>
+    </div>
+  </section>
+
+  <section class="view" id="v-timeline">
+    <div class="rail" id="rail"></div>
+    <div class="card" id="rev"></div>
+    <div class="pager">
+      <button class="btn" id="prev">← Previous</button>
+      <span class="hint">Click ▸ to see why · E expands everything · ← → switch revisions</span>
+      <button class="btn" id="next">Next →</button>
+    </div>
+  </section>
+
+  <section class="view" id="v-matrix">
+    <div class="legend" id="legend"></div>
+    <div class="filters" id="filters"></div>
+    <div class="mx-wrap"><table class="mx" id="mx"></table></div>
+    <p class="hint" style="margin-top:10px">Click a feature to see its full history and the reason behind each change.</p>
+  </section>
+
+  <section class="view" id="v-arcs">
+    <div class="arcs" id="arcs"></div>
+  </section>
+
+  <section class="view" id="v-today">
+    <div class="sec">
+      <h2>The protocol today: revision 2026-07-28</h2>
+      <p class="sub">What a client and a server actually do now.</p>
+      <div class="core" id="core"></div>
+    </div>
+
+    <div class="sec">
+      <h2>On the way out</h2>
+      <p class="sub">Deprecated features still work, but new code shouldn't use them. Earliest removal is when they may go, not when they must.</p>
+      <div class="tb-wrap"><table class="tb" id="deprecated"></table></div>
+    </div>
+
+    <div class="sec two">
+      <div>
+        <h2>Outside the core: extensions</h2>
+        <p class="sub" style="margin-bottom:12px">Optional features with their own release cycle. Stages: Experimental → Beta → Stable.</p>
+        <div class="tb-wrap"><table class="tb" id="exts"></table></div>
+      </div>
+      <div>
+        <h2>The ecosystem is catching up</h2>
+        <p class="sub" style="margin-bottom:12px">An independent census (<a href="https://github.com/RoninForge/state-of-mcp">RoninForge state-of-mcp</a>) probes every server in the official MCP Registry it can reach and checks four things the new revision requires: <code>server/discover</code>, calls without the handshake, no dependence on sessions, and the new routing headers.</p>
+        <div class="card census">
+          <div class="v">4,937</div><div class="d">servers reachable on 22 Jul 2026, out of 18,032 in the registry</div>
+          <div class="v">0</div><div class="d">passed all four checks that day, a week before the release</div>
+          <div class="v">81%</div><div class="d">already handled calls without the handshake, the biggest single change</div>
+          <div class="v">31</div><div class="d">passed all four by 13 Sep 2026</div>
+        </div>
+        <p class="hint" style="margin-top:8px">The takeaway: most servers, and most tutorials online, still describe the old protocol.</p>
+      </div>
+    </div>
+
+    <div class="sec">
+      <h2>Rules of thumb</h2>
+      <ol class="rules" id="rules"></ol>
+    </div>
+  </section>
+
+  <div class="src">
+    Sources: each revision's changelog at <code>modelcontextprotocol.io/specification/&lt;revision&gt;/changelog</code>; the SEPs at <code>modelcontextprotocol.io/seps</code> and the PRs in <code>github.com/modelcontextprotocol/modelcontextprotocol</code> (all reasons quoted in “curly quotes” come from them); the deprecation registry and extensions overview; the maintainers' blog <code>blog.modelcontextprotocol.io</code>; the course guide <code>course/M1/guides/protocol-revision-2026-07-28.md</code>. PR and SEP numbers as printed in the changelogs. Checked on 29 Oct 2026.
+  </div>
+</div>
+
+<script>
+/* item: t = headline, r = PR/SEP, y = why it happened, l = what happened later */
+const REVS = [
+ {id:"2024-11-05", name:"Launch", theme:"Local servers, stdio, a stateful connection",
+  problem:"Every AI app needed its own integration for every tool: N apps × M tools of custom glue code.",
+  answer:"One open protocol. Build a server once, and any compatible app can use it. Servers run locally, next to the app.",
+  groups:{
+   new:[
+    {t:"JSON-RPC 2.0 messages: requests, responses, notifications", y:"A small, widely known message format; no need to invent a new one.", l:"The format hasn't changed since."},
+    {t:"A stateful connection that opens with an <code>initialize</code> handshake", y:"Client and server agree once, up front, on a protocol version and on what each side supports.", l:"Removed in 2026-07-28: a handshake ties a client to one server instance."},
+    {t:"Two transports: <code>stdio</code> and HTTP+SSE", y:"stdio: the app launches the server as a local process. HTTP+SSE: a first take on remote servers.", l:"stdio is still here. HTTP+SSE was replaced four months later."},
+    {t:"Three server primitives: tools, resources, prompts", y:"Each has a different owner. Tools are model-controlled: the model decides when to call them. Resources are application-driven: the app decides what context to pull in. Prompts are user-controlled: the user picks them."},
+    {t:"Two client features: sampling and roots", y:"Sampling lets a server borrow the client's model for a completion. Roots tell the server which folders it may work in.", l:"Both deprecated in 2026: few clients ever implemented them."},
+    {t:"Utilities: ping, cancellation, progress, logging, completion, pagination", l:"<code>ping</code> and <code>logging/setLevel</code> were removed in 2026; logging as a whole is deprecated."}
+   ],
+   act:[{t:"No authorization in the spec", y:"The spec said: “Authentication and authorization are not currently part of the core MCP specification, but we are considering ways to introduce them in future.” Servers ran on the user's own machine, so there was nobody to keep out.", l:"OAuth 2.1 arrived four months later."}]
+  },
+  hw:"The homework starter server is built on this model: stdio plus tools and resources."
+ },
+ {id:"2025-03-26", name:"Going remote", theme:"Streamable HTTP, OAuth 2.1, tool annotations",
+  problem:"Servers were moving from laptops to the network. HTTP+SSE needed an always-on connection and couldn't resume after a drop, and anyone could call a remote server: there was no auth.",
+  answer:"Streamable HTTP with plain POST requests, authorization based on OAuth 2.1, and hints that tell clients how a tool behaves.",
+  groups:{
+   new:[
+    {t:"Streamable HTTP transport", r:"PR #206", y:"The PR lists what was wrong with HTTP+SSE: it “requires the server to maintain a long-lived connection with high availability”, “does not support resumability” and “can only deliver server messages over SSE”. With Streamable HTTP, “stateless servers are now possible”: one endpoint, plain POSTs, SSE only when needed.", l:"It came with an <code>Mcp-Session-Id</code> header for sessions, which the 2026 revision removes."},
+    {t:"Authorization based on OAuth 2.1", r:"PR #133", y:"A server on the network has to know who is calling and what they are allowed to do.", l:"Reworked in every revision since."},
+    {t:"Tool annotations", r:"PR #185", y:"<code>readOnlyHint</code>, <code>destructiveHint</code>, <code>idempotentHint</code>, <code>openWorldHint</code> describe a tool's behavior beyond its schema, so a client can, say, ask for confirmation before a destructive call. The PR itself warns that clients “can't necessarily trust servers”, so these are hints, not guarantees."},
+    {t:"JSON-RPC batching", r:"PR #228", y:"JSON-RPC 2.0 allows batches, and SDKs that didn't support them were, in the PR's words, “technically … out of compliance with JSON-RPC”.", l:"Removed three months later."},
+    {t:"Smaller additions: audio content, a <code>completions</code> capability, a <code>message</code> field on progress notifications"}
+   ],
+   dep:[{t:"HTTP+SSE, replaced by Streamable HTTP", y:"Same reasons as above: an always-on connection with no way to resume.", l:"Formally reclassified as Deprecated in 2026."}]
+  },
+  hw:"The advanced level — Streamable HTTP with a bearer-token check — comes from this revision. Set annotations too: read-only on <code>get_*</code> and <code>list_*</code>."
+ },
+ {id:"2025-06-18", name:"Growing up", theme:"Structured output, elicitation, servers as OAuth resource servers",
+  problem:"Clients had to accept whatever text a tool returned, servers had no standard way to ask the user anything, and nothing stopped a malicious server from getting hold of a token meant for another one.",
+  answer:"Tool results that match a schema, a way for the server to ask the user, and tokens bound to the one server they were issued for.",
+  groups:{
+   new:[
+    {t:"Structured tool output: <code>outputSchema</code> and <code>structuredContent</code>", r:"PR #371", y:"Lets a client strictly validate tool results against a declared schema, “especially useful when interacting with untrusted servers”."},
+    {t:"Elicitation: the server can ask the user for missing input", r:"PR #382", y:"Until then, “MCP lacked a standardized way for servers to request this information, requiring developers to implement custom solutions or multi-step tool calls”.", l:"Since 2026 it is delivered through MRTR."},
+    {t:"Resource links in tool results", r:"PR #603", y:"A tool can point to a resource instead of stuffing its whole content into the result."},
+    {t:"A <code>title</code> field for display names", r:"PR #663", y:"<code>name</code> stays the identifier code relies on; <code>title</code> is what people see."},
+    {t:"A Security Best Practices page"}
+   ],
+   chg:[
+    {t:"Clients must use Resource Indicators (RFC 8707)", r:"PR #734", y:"In the changelog's words, “to prevent malicious servers from obtaining access tokens”: each token names the one server it is meant for."},
+    {t:"MCP servers become OAuth resource servers", r:"PR #338", y:"The server only checks tokens; a separate authorization server issues them. Protected resource metadata tells the client where that authorization server is."},
+    {t:"<code>MCP-Protocol-Version</code> header required over HTTP", r:"PR #548", y:"Without a session, a server had no way to know which negotiated version a later HTTP request was using (issue #478)."},
+    {t:"Lifecycle rules tightened from SHOULD to MUST"},
+    {t:"<code>_meta</code> on more types; <code>context</code> in completion requests", r:"PR #710, #598"}
+   ],
+   rem:[{t:"JSON-RPC batching", r:"PR #416", y:"The author of the removal saw “no compelling use cases for batching”.", l:"Added and removed within three months, with no warning. SEP-2596 later cites exactly this as a reason for a formal deprecation policy."}]
+  },
+  hw:"Structured output is the same idea as the Structured Output Parser at agent boundaries in n8n: agree on the shape of the data."
+ },
+ {id:"2025-11-25", name:"One year of MCP", theme:"Tasks (experimental), CIMD, URL elicitation, JSON Schema 2020-12",
+  problem:"Long tool calls could vanish without a trace, models never saw why their arguments were rejected, and client registration made every server keep an ever-growing database of clients.",
+  answer:"Experimental Tasks, validation errors the model can read, registration by URL instead of by database, and formal governance.",
+  groups:{
+   exp:[{t:"<b>Tasks</b>: long-running requests", r:"SEP-1686", y:"There was “no way for a client to explicitly request the status of a tool call”, and if a result was dropped, “clients must call the tool again, which is undesirable for tools expected to take minutes or more”. Tasks let a client start work now and fetch the result later.", l:"In 2026 Tasks move out of the core into an extension."}],
+   new:[
+    {t:"Client ID Metadata Documents (CIMD)", r:"SEP-991", y:"“Pre-registration by developers is impractical as servers may not exist when clients ship”, and Dynamic Client Registration “requires servers to manage unbounded databases, handle expiration, and trust self-asserted metadata”. With CIMD, an HTTPS URL is the client ID.", l:"DCR drops from SHOULD to MAY here and is deprecated in 2026."},
+    {t:"URL mode elicitation", r:"SEP-1036", y:"“API keys, passwords, and other credentials must never transit through intermediary systems.” The user enters them on a trusted web page, and the client never sees them."},
+    {t:"Sampling with tools: <code>tools</code> and <code>toolChoice</code>", r:"SEP-1577", y:"“Sampling doesn't support tool calling, although it's a cornerstone of modern agentic behaviour.”", l:"Sampling itself was deprecated a revision later: too complex for clients to adopt."},
+    {t:"Elicitation forms get better enums and default values", r:"SEP-1330, 1034"},
+    {t:"Icons for tools, resources and prompts; guidance on tool names", r:"SEP-973, 986"},
+    {t:"Formal governance: structure, working groups, SDK tiers", r:"SEP-932, 994, 1302, 1730", y:"The protocol outgrew a single company's repository: clear rules for who decides, and quality tiers for SDKs."}
+   ],
+   chg:[
+    {t:"<b>Invalid input is a tool error, not a protocol error</b>", r:"SEP-1303", y:"“With the current specifications, models cannot see these error messages and thus cannot self-correct.” A protocol error is handled by the client; a tool result with <code>isError: true</code> reaches the model, which can then fix its call."},
+    {t:"JSON Schema 2020-12 becomes the default dialect", r:"SEP-1613", y:"The spec never said which JSON Schema version to use, which led to “validation failures between clients and servers assuming different versions”."},
+    {t:"Authorization: OpenID Connect Discovery, incremental scope consent", r:"PR #797, SEP-835", y:"Popular providers such as Keycloak and Auth0 speak OIDC discovery by default. Incremental consent fixes “over-privileged token requests”: a client asks for more scopes only when a call needs them."},
+    {t:"Servers may close SSE streams and let clients reconnect", r:"SEP-1699", y:"The transport “does not allow servers to close a connection while computing a result”, which kept long connections open.", l:"Reconnecting relied on resumability, which 2026 removes."},
+    {t:"stdio servers may write any logs to <code>stderr</code>; HTTP 403 on a bad <code>Origin</code>", r:"PR #670, #1439"}
+   ],
+   dep:[{t:"<code>includeContext</code> values <code>thisServer</code> and <code>allServers</code>", y:"SEP-1577 notes that ambiguous context inclusion may have contributed to sampling's “low adoption”.", l:"Formally Deprecated in 2026; they go when Sampling goes."}]
+  },
+  hw:"SEP-1303 is a homework acceptance criterion: a forbidden status change goes back to the model as a normal tool result listing the allowed transitions."
+ },
+ {id:"2026-07-28", name:"Stateless", current:true, theme:"No sessions, server/discover, MRTR, deprecation policy",
+  problem:"Sessions and the handshake tied each client to one server instance: operators needed sticky sessions, servers had to clean up per-client state (“a common source of bugs and memory leaks”), and lists couldn't be cached. Asking the client for anything needed an open SSE stream, so remote servers rarely did.",
+  answer:"A stateless core: every request carries everything needed to handle it, so any instance can serve it behind a plain load balancer. Plus a deprecation policy, so changes this big come with warning.",
+  groups:{
+   rem:[
+    {t:"Sessions and the <code>Mcp-Session-Id</code> header", r:"SEP-2567", y:"Nobody agreed what a session was: “some scope them per tool call, some per application launch, some per page load, and almost none resume them.” Sessions also needed sticky routing and garbage collection, and they made list results impossible to cache.", l:"State that must outlive a call now lives behind an explicit handle the server returns and the client passes back as a tool argument."},
+    {t:"The <code>initialize</code> handshake", r:"SEP-2575", y:"The handshake “enforces the establishment of a state”, so a simple round-robin load balancer can't be used. Its data now travels in the <code>_meta</code> of every request."},
+    {t:"<code>ping</code>", r:"SEP-2575", y:"“Any normal RPC call already proves server liveness”, and HTTP keep-alives and process status already cover connection health. Servers can no longer send their own requests, so server-to-client ping had no place either."},
+    {t:"SSE resumability (<code>Last-Event-ID</code>)", r:"SEP-2575", y:"Resuming “would require the server to retain per-request state across connection failures”. A dropped stream now cancels the request; work that must survive a disconnect uses Tasks.", l:"Because a client simply re-sends a lost request, write tools need idempotency keys."},
+    {t:"<code>logging/setLevel</code> and <code>notifications/roots/list_changed</code>", r:"SEP-2575", y:"A log level set once is server-side state; now each request carries its own level in <code>_meta</code>. Roots are fetched on demand, so there is nothing to notify about."},
+    {t:"The HTTP GET stream and <code>resources/subscribe</code>", r:"SEP-2575", y:"Subscriptions are “inherently stateful”. Now all traffic is POST, and notifications come through one explicit request, <code>subscriptions/listen</code>, which works the same on HTTP and stdio."},
+    {t:"Server-initiated requests", r:"SEP-2322", y:"Adoption of elicitation, sampling and roots was “very low or blocked for many Remote MCP servers” because they needed SSE streams and server-side state. Replaced by MRTR."},
+    {t:"<code>elicitationId</code> and <code>notifications/elicitation/complete</code>", y:"With MRTR the client learns the outcome by retrying the original request, so a separate “done” signal no longer fits.", l:"Both had arrived only in 2025-11-25."}
+   ],
+   new:[
+    {t:"MRTR: Multi Round-Trip Requests", r:"SEP-2322", y:"A server must be able to handle each request using “no information other than what is present in that individual request”. So instead of calling the client, it answers <code>input_required</code> with what it needs, and the client retries the original call with the answers."},
+    {t:"<code>server/discover</code>", r:"SEP-2575", y:"Discovery split out of the handshake into one standalone call. Servers MUST implement it; clients may call it first or skip it."},
+    {t:"A required <code>resultType</code> on every result", r:"SEP-2322", y:"The client has to tell a final result (<code>complete</code>) from “I need more input” (<code>input_required</code>)."},
+    {t:"Cacheable lists: <code>ttlMs</code> and <code>cacheScope</code>", r:"SEP-2549", y:"A TTL lets clients cache lists and refresh on a schedule “without relying on server-push notifications”. <code>cacheScope</code> prevents “unintended caching of user-specific data” in shared caches."},
+    {t:"<code>Mcp-Method</code> and <code>Mcp-Name</code> headers", r:"SEP-2243", y:"To “enable standard network infrastructure to work with MCP traffic”: load balancers, proxies and firewalls can route on headers without parsing JSON. Headers must match the body, so no two components act on different values."},
+    {t:"A feature lifecycle policy: Active → Deprecated → Removed", r:"SEP-2596", y:"Before it, “implementers cannot tell whether ‘deprecated’ and ‘soft-deprecated’ mean different things, or how long either state lasts”. Twelve months spans at least two six-month release cycles: one for SDKs to ship migration support, one for everyone else to adopt it."},
+    {t:"An <code>extensions</code> field in capabilities", y:"Optional features can evolve outside the core's release cycle."},
+    {t:"<code>subscriptions/listen</code>; OpenTelemetry trace context in <code>_meta</code>", r:"SEP-2575, 414"}
+   ],
+   ext:[{t:"Tasks move out of the core into an official extension", r:"SEP-2663", y:"Experimental Tasks were “a stopgap until the protocol's extension mechanism was available”. Without sessions there is no safe scope for <code>tasks/list</code>, so it's gone, and the blocking <code>tasks/result</code> needed long-lived connections, so results are now polled via <code>tasks/get</code>.", l:"Listed as Beta; the plan is to promote it back into the core once it stabilizes."}],
+   dep:[
+    {t:"Sampling → call your LLM provider's API directly", r:"SEP-2577", y:"Doing it right needs human approval, model selection, security checks and tool loops. “This complexity has contributed to low client adoption.”"},
+    {t:"Roots → tool parameters, resource URIs or server config", r:"SEP-2577", y:"“Few clients implement roots support, and few servers rely on it.” Servers weren't even required to respect roots."},
+    {t:"Protocol-level logging → <code>stderr</code> or OpenTelemetry", r:"SEP-2577", y:"Standard logging tools are “mature, widely adopted, and better suited to logging than an application-protocol channel”."},
+    {t:"Dynamic Client Registration → CIMD", r:"PR #2858", y:"DCR means unbounded database growth and an unauthenticated <code>/register</code> endpoint that is open to denial-of-service. CIMD needs no registration step at all."},
+    {t:"HTTP+SSE and the old <code>includeContext</code> values, reclassified", r:"SEP-2596", y:"Both had been deprecated for over a year already, so they get a three-month grace period instead of twelve months."}
+   ],
+   chg:[
+    {t:"Full JSON Schema 2020-12 in tool schemas", r:"SEP-2106", y:"Returning a plain array was “impossible because <code>structuredContent</code> must be an object”. Now any JSON value is allowed."},
+    {t:"Resource not found: <code>-32002</code> → <code>-32602</code>", r:"SEP-2164", y:"SDKs disagreed on the code, so “clients cannot reliably detect resource-not-found conditions”. <code>-32602</code> is the standard JSON-RPC code, and <code>-32020</code>…<code>-32099</code> is now reserved for the spec so new codes don't clash with SDK ones."},
+    {t:"Authorization: issuer (<code>iss</code>) validation, credentials bound to their authorization server", r:"SEP-2468, 2352", y:"Stops mix-up attacks, where “an attacker causes a client to associate an authorization response with the wrong authorization server”."}
+   ]
+  },
+  hw:"SDK 2.x (<code>mcp</code> for Python, <code>@modelcontextprotocol/server</code> for TypeScript) speaks this revision; so does supergateway 4.x (Sep 2026), which falls back to older versions. Keeping state outside the process follows directly from sessions going away."
+ }
+];
+
+const EVENTS = [
+ {d:"25 Nov 2024", w:"Anthropic open-sources MCP (spec revision 2024-11-05)", spec:1},
+ {d:"26 Mar 2025", w:"Revision 2025-03-26", spec:1},
+ {d:"18 Jun 2025", w:"Revision 2025-06-18", spec:1},
+ {d:"31 Jul 2025", w:"A new governance model for the protocol (“Building to Last”)"},
+ {d:"8 Sep 2025", w:"The official MCP Registry launches in preview"},
+ {d:"21 Nov 2025", w:"MCP Apps proposed (interactive UI from servers); the .mcpb bundle format adopted for local servers"},
+ {d:"25 Nov 2025", w:"Revision 2025-11-25, “One Year of MCP”", spec:1},
+ {d:"28 Nov 2025", w:"SEPs move to pull requests"},
+ {d:"9 Dec 2025", w:"MCP joins the Agentic AI Foundation (Linux Foundation)"},
+ {d:"26 Jan 2026", w:"MCP Apps go live as an official extension"},
+ {d:"9 Mar 2026", w:"The 2026 MCP roadmap"},
+ {d:"21 May 2026", w:"Release candidate of revision 2026-07-28"},
+ {d:"18 Jun 2026", w:"The Enterprise-Managed Authorization extension becomes stable"},
+ {d:"29 Jun 2026", w:"Beta SDKs for the release candidate"},
+ {d:"28 Jul 2026", w:"Revision 2026-07-28; the TypeScript, Python, Go and C# SDKs support it on release day", spec:1},
+ {d:"22 Aug 2026", w:"The new MCP roadmap"}
+];
+
+const ST = {
+ new:{l:"added", p:"p-new"}, chg:{l:"changed", p:"p-chg"}, exp:{l:"experimental", p:"p-exp"},
+ ext:{l:"extension", p:"p-ext"}, dep:{l:"deprecated", p:"p-dep"}, rem:{l:"removed", p:"p-rem"},
+ act:{l:"unchanged", p:"p-act"}
+};
+const GROUP_ORDER = ["new","exp","ext","chg","dep","rem","act"];
+const GROUP_TITLE = {new:"Added", exp:"Experimental", ext:"Moved to an extension", chg:"Changed", dep:"Deprecated", rem:"Removed", act:"Worth knowing"};
+
+/* matrix: c = 5 cells, one per revision: [state, what, why] or null if the feature doesn't exist yet */
+const A = ["act","",""];
+const MX = [
+ {g:"Core and lifecycle"},
+ {f:"initialize handshake", c:[["new","Agree on version and capabilities when connecting","Each side needs to know what the other supports."],A,["chg","Lifecycle rules tightened: SHOULD → MUST",""],A,["rem","Removed; version and capabilities ride in every request (SEP-2575)","The handshake “enforces the establishment of a state”, which rules out a plain round-robin load balancer."]]},
+ {f:"Sessions", c:[["new","A stateful connection",""],["chg","Mcp-Session-Id header in Streamable HTTP",""],A,A,["rem","Removed; state lives behind explicit handles (SEP-2567)","Nobody agreed what a session was (“some scope them per tool call, some per application launch…”). Sessions needed sticky routing and cleanup, and made lists uncacheable."]]},
+ {f:"server/discover", c:[null,null,null,null,["new","Servers MUST implement it; clients MAY call it first (SEP-2575)","Discovery split out of the handshake into one standalone call."]]},
+ {f:"ping", c:[["new","Check that the other side is alive",""],A,A,A,["rem","Removed (SEP-2575)","“Any normal RPC call already proves server liveness”; HTTP keep-alives and process status cover connection health. Servers can't send their own requests any more."]]},
+ {f:"JSON-RPC batching", c:[null,["new","Added (PR #228)","JSON-RPC 2.0 allows batches; SDKs without them were technically out of compliance."],["rem","Removed (PR #416)","The author saw “no compelling use cases for batching”."],null,null]},
+ {f:"Deprecation policy", c:[null,null,null,null,["new","Active → Deprecated → Removed, at least 12 months (SEP-2596)","Nobody could tell what “deprecated” meant or how long it lasted, and batching vanished after one release with no warning."]]},
+ {f:"Extensions", c:[null,null,null,null,["new","An extensions field in capabilities","Lets features like Tasks and MCP Apps evolve outside the core's release cycle."]]},
+ {g:"Transport"},
+ {f:"stdio", c:[["new","The app launches the server as a local process",""],A,A,["chg","Any logs may go to stderr (PR #670)","Not just errors: stdout is reserved for protocol messages."],A]},
+ {f:"HTTP+SSE", c:[["new","The first remote transport",""],["dep","Replaced by Streamable HTTP (PR #206)","It needed “a long-lived connection with high availability”, couldn't resume after a drop and could only push server messages over SSE."],["dep","",""],["dep","",""],["dep","Reclassified under the new policy (SEP-2596)","Already deprecated for over a year, so it gets three months' grace instead of twelve."]]},
+ {f:"Streamable HTTP", c:[null,["new","One endpoint, plain POSTs, SSE optional (PR #206)","“Stateless servers are now possible”: no always-on connection required."],["chg","MCP-Protocol-Version header required (PR #548)","Without a session ID the server couldn't tell which version a request used."],["chg","Servers may close SSE streams (SEP-1699); 403 on a bad Origin","The transport “does not allow servers to close a connection while computing a result”."],["chg","No sessions or resumability; Mcp-Method / Mcp-Name headers; subscriptions/listen","So any request can land on any instance, and gateways can route without parsing JSON."]]},
+ {g:"Server primitives"},
+ {f:"Tools", c:[["new","The model decides when to call them",""],["chg","Behavior annotations",""],["chg","Structured output, resource links, title",""],["chg","Validation errors as tool results (SEP-1303), icons, naming guidance","“Models cannot see these error messages and thus cannot self-correct.”"],["chg","Full JSON Schema 2020-12, cacheable list, deterministic order","A stable order “enables clients to reliably cache the tool list and improves LLM prompt cache hit rates”."]]},
+ {f:"Tool annotations", c:[null,["new","readOnly / destructive / idempotent / openWorld hints (PR #185)","Describe behavior beyond the schema. The PR warns clients “can't necessarily trust servers”, so they are hints."],A,A,A]},
+ {f:"Structured tool output", c:[null,null,["new","outputSchema + structuredContent (PR #371)","Strict validation of results, “especially useful when interacting with untrusted servers”."],["chg","JSON Schema 2020-12 by default (SEP-1613)","The spec never named a version, and clients and servers assuming different ones failed validation."],["chg","structuredContent may be any JSON value (SEP-2106)","A plain array was “impossible” because structuredContent had to be an object."]]},
+ {f:"Resources", c:[["new","Context the application pulls in",""],A,["chg","title; resource links in tool results",""],["chg","Icons",""],["chg","subscribe → subscriptions/listen; not found: -32002 → -32602 (SEP-2164)","Subscriptions are “inherently stateful”. SDKs disagreed on the not-found code, so the standard JSON-RPC code won."]]},
+ {f:"Prompts", c:[["new","Templates the user picks",""],A,["chg","title",""],["chg","Icons",""],A]},
+ {f:"Completions", c:[["new","Argument autocompletion",""],["chg","Explicit completions capability",""],["chg","context field (PR #598)","Completion can use arguments the user has already filled in."],A,A]},
+ {g:"Server → client"},
+ {f:"Sampling", c:[["new","The server borrows the client's model",""],A,A,["chg","Sampling with tools (SEP-1577)","“Sampling doesn't support tool calling, although it's a cornerstone of modern agentic behaviour.”"],["dep","Deprecated → call the provider's API directly (SEP-2577)","Hard to implement right; “this complexity has contributed to low client adoption”."]]},
+ {f:"Roots", c:[["new","The client says which folders the server may use",""],A,A,A,["dep","Deprecated (SEP-2577); list_changed removed","“Few clients implement roots support, and few servers rely on it.” Tool parameters and config do the same job."]]},
+ {f:"Protocol-level logging", c:[["new","logging/setLevel and log messages",""],A,A,A,["dep","Deprecated → stderr / OpenTelemetry (SEP-2577); setLevel removed","Standard logging is “mature, widely adopted, and better suited to logging than an application-protocol channel”."]]},
+ {f:"Elicitation", c:[null,null,["new","The server asks the user (PR #382)","There was no standard way to ask; people built custom solutions or multi-step tool calls."],["chg","URL mode (SEP-1036), better enums, default values","Credentials “must never transit through intermediary systems”, so the user enters them on a web page."],["chg","Delivered via MRTR; elicitationId removed","The client learns the outcome by retrying the request, so a separate “done” signal no longer fits."]]},
+ {f:"MRTR (input_required)", c:[null,null,null,null,["new","The only way for a server to ask the client for something (SEP-2322)","Server-initiated requests needed SSE streams and server state, so adoption was “very low or blocked for many Remote MCP servers”."]]},
+ {f:"Tasks", c:[null,null,null,["exp","Experimental (SEP-1686)","Long tool calls could be dropped with no way to check status or fetch the result later."],["ext","Official extension, Beta; tasks/list removed (SEP-2663)","Lets Tasks mature on their own release cycle. Without sessions there is no safe scope for tasks/list."]]},
+ {g:"Authorization"},
+ {f:"OAuth authorization", c:[null,["new","OAuth 2.1 (PR #133)","A server on the network has to know who is calling."],["chg","Resource server; RFC 8707 required (PR #338, #734)","“To prevent malicious servers from obtaining access tokens.”"],["chg","OIDC Discovery, incremental scope consent","Many providers speak OIDC by default; incremental consent avoids “over-privileged token requests”."],["chg","iss validation; credentials bound to their authorization server (SEP-2468, 2352)","Stops mix-up attacks that tie a response to the wrong authorization server."]]},
+ {f:"Dynamic Client Registration", c:[null,["new","Clients register themselves (SHOULD)",""],A,["chg","Downgraded to MAY; CIMD recommended","DCR “requires servers to manage unbounded databases, handle expiration, and trust self-asserted metadata”."],["dep","Deprecated in favor of CIMD (PR #2858)","Unbounded database growth and an unauthenticated /register endpoint open to denial-of-service."]]},
+ {f:"Client ID Metadata Documents", c:[null,null,null,["new","Recommended registration (SEP-991)","An HTTPS URL is the client ID: no registration database needed."],["act","Replaces DCR",""]]}
+];
+const REV_SHORT = REVS.map(r=>r.id);
+
+const ARCS = [
+ {t:"1. Transport: from a local process to a stateless service", m:"Each step removed something the server had to hold in memory: first the always-on SSE connection, then the session, then the handshake. Today any request can land on any instance behind a plain load balancer.",
+  s:[["new","stdio and HTTP+SSE, stateful connection"],["chg","Streamable HTTP: one endpoint, plain POSTs"],["chg","MCP-Protocol-Version header"],["chg","Servers may close SSE streams"],["rem","No sessions, no handshake, no resumability"]]},
+ {t:"2. Authorization: each revision closes a gap found in the last", m:"No auth, because servers were local. Then OAuth for remote servers. Then tokens bound to one server, registration without a database, and protection against mix-up attacks.",
+  s:[["act","Not in the spec"],["new","OAuth 2.1"],["chg","Resource server, RFC 8707"],["new","CIMD, OIDC Discovery, incremental consent"],["dep","DCR deprecated, issuer validation"]]},
+ {t:"3. When the server needs the client: from callbacks to MRTR", m:"Calling the client needed an open stream and server-side state, so remote servers rarely did it. MRTR flips it around: the server answers “I need input”, and the client retries the call with the answers.",
+  s:[["new","Sampling and roots"],["",""],["new","Elicitation"],["chg","URL elicitation, sampling with tools"],["rem","MRTR only; sampling and roots deprecated"]]},
+ {t:"4. Long-running work: an experiment that moved out to mature", m:"Tasks solved a real problem — calls that vanish without a trace — but the first design leaned on sessions and long-lived connections. It moved to an extension to keep evolving, and is meant to return to the core.",
+  s:[["new","Progress and cancellation"],["chg","message field in progress"],["",""],["exp","Tasks, experimental"],["ext","Tasks extension, polled via tasks/get"]]},
+ {t:"5. The tool contract: from text to schema-bound data", m:"Every step makes a tool call easier to check: hints about behavior, schemas for results, errors the model can read and act on.",
+  s:[["new","name, description, inputSchema"],["new","Behavior annotations"],["new","Structured output, title, resource links"],["chg","Validation errors as results, JSON Schema 2020-12"],["chg","Any JSON in results, cacheable tool lists"]]},
+ {t:"6. Governance: from one company's project to a standard with rules", m:"Batching was added and removed within three months, with no warning. Since 2026, a feature normally gets at least twelve months' notice before it can be removed.",
+  s:[["new","Anthropic open-sources MCP"],["",""],["",""],["new","Governance model, Registry, working groups, SDK tiers"],["new","Agentic AI Foundation, deprecation policy, extensions"]]}
+];
+
+const CORE = [
+ {h:"Every request stands alone", p:"Version and client capabilities ride in each request's <code>_meta</code>. No handshake, no session."},
+ {h:"Two transports", p:"stdio for local servers, Streamable HTTP for remote ones. Remote servers can sit behind any load balancer."},
+ {h:"Three server primitives", p:"Tools (the model calls them), resources (the app reads them), prompts (the user picks them)."},
+ {h:"Asking the user: MRTR", p:"The server answers <code>input_required</code>, the client collects the answer and retries the original call."},
+ {h:"Discovery and caching", p:"<code>server/discover</code> tells clients what a server supports; list results say how long they may be cached."},
+ {h:"Authorization", p:"OAuth 2.1; clients register with a metadata URL (CIMD); tokens are bound to one server."}
+];
+
+const DEPRECATED = [
+ ["Sampling","2026-07-28","Call your LLM provider's API directly","First revision on or after 28 Jul 2027"],
+ ["Roots","2026-07-28","Tool parameters, resource URIs or server config","First revision on or after 28 Jul 2027"],
+ ["Protocol-level logging","2026-07-28","<code>stderr</code> on stdio, OpenTelemetry elsewhere","First revision on or after 28 Jul 2027"],
+ ["Dynamic Client Registration","2026-07-28","Client ID Metadata Documents (CIMD)","First revision on or after 28 Jul 2027"],
+ ["HTTP+SSE transport","2025-03-26","Streamable HTTP","Three months after SEP-2596 is final"],
+ ["<code>includeContext</code>: <code>thisServer</code>, <code>allServers</code>","2025-11-25","Omit the field or use <code>none</code>","Together with Sampling"]
+];
+
+const EXTS = [
+ ["MCP Apps","Interactive UI (charts, forms) inside the chat","Stable"],
+ ["Enterprise-Managed Authorization","Sign-in through the company's identity provider","Stable"],
+ ["OAuth Client Credentials","Machine-to-machine auth, no user","Stable"],
+ ["Tasks","Long-running work with polling","Beta, headed for the core"],
+ ["Server Cards","Describe a server before connecting","Beta"],
+ ["Skills over MCP","Serve agent skills from an MCP server","Beta"]
+];
+
+const RULES = [
+ {h:"Read the spec for 2026-07-28, and check the date on any tutorial", p:"Anything written before 28 Jul 2026 likely describes initialize, sessions and sampling."},
+ {h:"Use the current SDKs", p:"Python: <code>mcp</code> 2.x (not the same thing as <code>fastmcp</code>). TypeScript: <code>@modelcontextprotocol/server</code> 2.x. Inspector: 2.12.0 or later; earlier 2.x releases have a remote code execution advisory."},
+ {h:"Return errors as tool results", p:"The model can read and fix a validation error only if it arrives as a result, not as a protocol error."},
+ {h:"Keep state outside the connection", p:"Put it in a database or behind an explicit handle, and give write tools idempotency keys: a lost request is simply re-sent."},
+ {h:"Log to stderr, never stdout", p:"On stdio, anything printed to stdout corrupts the protocol stream. It's the most common reason a server won't start."}
+];
+
+let cur = 0;
+const $ = s=>document.querySelector(s);
+
+function renderPath(){
+  $("#path").innerHTML = REVS.map((r,i)=>`<button class="pr" data-i="${i}">
+    <div class="when"><b>${r.id}</b><span>${r.name}</span>${r.current?'<br><span class="cur">current</span>':""}</div>
+    <div class="prob"><h4>The problem</h4><p>${r.problem}</p></div>
+    <div><h4>The answer</h4><p>${r.answer}</p></div>
+    <div class="go">→</div></button>`).join("");
+  $("#path").querySelectorAll(".pr").forEach(b=>b.onclick=()=>{cur=+b.dataset.i;renderRev();setView("timeline")});
+  $("#events").innerHTML = EVENTS.map(e=>`<div class="ev${e.spec?" spec":""}"><div class="when">${e.d}</div><div class="what">${e.w}</div></div>`).join("");
+}
+
+function counts(r){
+  return GROUP_ORDER.filter(k=>r.groups[k]&&k!=="act").map(k=>`<span class="pill ${ST[k].p}">${ST[k].l}: ${r.groups[k].length}</span>`).join("");
+}
+function item(it){
+  const ref = it.r?`<span class="ref">${it.r}</span>`:"";
+  if(!it.y&&!it.l) return `<li class="plain">${it.t}${ref}</li>`;
+  return `<li><details><summary>${it.t}${ref}</summary><div class="more">${
+    it.y?`<div><span class="lbl why">Why</span>${it.y}</div>`:""}${
+    it.l?`<div><span class="lbl later">Later</span>${it.l}</div>`:""}</div></details></li>`;
+}
+function renderRail(){
+  $("#rail").innerHTML = REVS.map((r,i)=>`<button class="stop${i===cur?" on":""}" data-i="${i}" aria-label="Revision ${r.id}">
+    <div class="dot"></div><div class="d">${r.id}</div><div class="n">${r.name}</div>${r.current?'<span class="cur">current</span>':""}</button>`).join("");
+  $("#rail").querySelectorAll(".stop").forEach(b=>b.onclick=()=>{cur=+b.dataset.i;renderRev()});
+}
+function renderRev(){
+  renderRail();
+  const r = REVS[cur];
+  const gs = GROUP_ORDER.filter(k=>r.groups[k]).map(k=>`<div class="group"><h3><span class="pill ${ST[k].p}">${GROUP_TITLE[k]}</span></h3><ul>${r.groups[k].map(item).join("")}</ul></div>`).join("");
+  $("#rev").innerHTML = `<div class="rev-head"><div><h2>${r.id} · ${r.name}</h2><div class="tag">${r.theme}</div></div>
+     <div class="rev-side"><div class="counts">${counts(r)}</div><button class="btn" id="expandBtn">Expand all</button></div></div>
+   <div class="driver"><span class="lbl why">Why this revision</span>${r.problem}</div>
+   <div class="groups">${gs}</div>
+   <div class="hw"><b>For the homework:</b> ${r.hw}</div>`;
+  $("#expandBtn").onclick = toggleAll;
+  $("#prev").disabled = cur===0; $("#next").disabled = cur===REVS.length-1;
+}
+function toggleAll(){
+  const ds = [...document.querySelectorAll("#rev details")];
+  const open = ds.some(d=>!d.open);
+  ds.forEach(d=>d.open=open);
+  $("#expandBtn").textContent = open?"Collapse all":"Expand all";
+}
+
+let mxFilter = "all";
+function renderMatrix(){
+  $("#legend").innerHTML = "Legend: " + ["new","chg","exp","ext","dep","rem","act"].map(k=>`<span class="pill ${ST[k].p}">${ST[k].l}</span>`).join("");
+  const fl = [["all","All"],["rem","What was removed"],["dep","What was deprecated"],["exp","Experiments"],["new","New in 2026"]];
+  $("#filters").innerHTML = fl.map(([k,l])=>`<button class="btn" data-f="${k}" aria-pressed="${k===mxFilter}">${l}</button>`).join("");
+  $("#filters").querySelectorAll("button").forEach(b=>b.onclick=()=>{mxFilter=b.dataset.f;renderMatrix()});
+  let h = `<thead><tr><th class="f" style="padding-left:22px">Feature</th>${REVS.map(r=>`<th>${r.id}${r.current?"<br><span class=\"pill p-new\" style=\"font-size:10px\">current</span>":""}</th>`).join("")}</tr></thead><tbody>`;
+  MX.forEach((row,i)=>{
+    if(row.g){h+=`<tr class="grp"><th colspan="6">${row.g}</th></tr>`;return}
+    const s = row.c.map(c=>c?c[0]:"");
+    const match = mxFilter==="all" || (mxFilter==="new" ? s[4]==="new" : mxFilter==="exp" ? s.some(x=>x==="exp"||x==="ext") : s.includes(mxFilter));
+    h+=`<tr data-i="${i}" class="row${match?"":" dim"}"><th class="f">${row.f}</th>${s.map(x=>`<td>${x?`<span class="c ${ST[x].p}">${ST[x].l}</span>`:`<span class="c none">—</span>`}</td>`).join("")}</tr>`;
+  });
+  $("#mx").innerHTML = h+"</tbody>";
+  $("#mx").querySelectorAll("tr.row").forEach(tr=>tr.onclick=()=>toggleRow(tr));
+}
+function toggleRow(tr){
+  const next = tr.nextElementSibling;
+  if(next&&next.classList.contains("det")){next.remove();tr.classList.remove("open");return}
+  const row = MX[+tr.dataset.i];
+  const lis = row.c.map((c,j)=>c&&(c[1]||c[2])?`<li><span class="rv">${REV_SHORT[j]}</span><span><span class="pill ${ST[c[0]].p}">${ST[c[0]].l}</span></span><div>${c[1]}${c[2]?`<div class="w"><span class="lbl why">Why</span>${c[2]}</div>`:""}</div></li>`:"").join("");
+  const d = document.createElement("tr");
+  d.className = "det";
+  d.innerHTML = `<td colspan="6"><ul class="hist">${lis}</ul></td>`;
+  tr.after(d); tr.classList.add("open");
+}
+
+function renderArcs(){
+  $("#arcs").innerHTML = ARCS.map(a=>`<div class="card arc"><h3>${a.t}</h3><p class="moral">${a.m}</p><div class="steps">${
+    a.s.map((x,j)=>x[1]?`<div class="step k-${x[0]}"><div class="sd">${REV_SHORT[j]}</div>${x[1]}</div>`:`<div class="step empty"><div class="sd">${REV_SHORT[j]}</div>no changes</div>`).join("")}</div></div>`).join("");
+}
+function renderToday(){
+  $("#core").innerHTML = CORE.map(c=>`<div class="card"><h3>${c.h}</h3><p>${c.p}</p></div>`).join("");
+  $("#deprecated").innerHTML = `<thead><tr><th>Feature</th><th>Deprecated in</th><th>Use instead</th><th>Can be removed</th></tr></thead><tbody>${
+    DEPRECATED.map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td>${r[2]}</td><td class="muted">${r[3]}</td></tr>`).join("")}</tbody>`;
+  $("#exts").innerHTML = `<thead><tr><th>Extension</th><th>What it does</th><th>Stage</th></tr></thead><tbody>${
+    EXTS.map(r=>`<tr><td><b>${r[0]}</b></td><td class="muted">${r[1]}</td><td><span class="pill ${r[2].startsWith("Stable")?"p-new":"p-exp"}">${r[2]}</span></td></tr>`).join("")}</tbody>`;
+  $("#rules").innerHTML = RULES.map(r=>`<li><div><b>${r.h}</b><span>${r.p}</span></div></li>`).join("");
+}
+
+const VIEWS = ["path","timeline","matrix","arcs","today"];
+function setView(v){
+  document.querySelectorAll("#views button").forEach(b=>b.classList.toggle("on",b.dataset.v===v));
+  document.querySelectorAll(".view").forEach(s=>s.classList.toggle("on",s.id==="v-"+v));
+  try{localStorage.setItem("mcpv-en",v)}catch(e){}
+}
+document.querySelectorAll("#views button").forEach(b=>b.onclick=()=>setView(b.dataset.v));
+$("#prev").onclick=()=>{if(cur>0){cur--;renderRev()}};
+$("#next").onclick=()=>{if(cur<REVS.length-1){cur++;renderRev()}};
+$("#themeBtn").onclick=()=>{const r=document.documentElement;const dark=r.dataset.theme?r.dataset.theme==="dark":matchMedia("(prefers-color-scheme: dark)").matches;r.dataset.theme=dark?"light":"dark"};
+document.addEventListener("keydown",e=>{
+  if(e.target.closest("input,textarea")||e.metaKey||e.ctrlKey||e.altKey)return;
+  if(e.key==="ArrowRight"){setView("timeline");$("#next").click()}
+  else if(e.key==="ArrowLeft"){setView("timeline");$("#prev").click()}
+  else if(e.key==="e"||e.key==="E"){setView("timeline");toggleAll()}
+  else if(["1","2","3","4","5"].includes(e.key))setView(VIEWS[+e.key-1]);
+});
+
+/* deep links from the lecture deck: #2025-03-26 opens that revision, #today / #matrix / … open a tab */
+function fromHash(){
+  const h = decodeURIComponent(location.hash.slice(1));
+  if(!h) return false;
+  const k = REVS.findIndex(r=>r.id===h);
+  if(k>=0){cur=k;renderRev();setView("timeline");return true}
+  if(VIEWS.includes(h)){setView(h);return true}
+  return false;
+}
+window.addEventListener("hashchange",fromHash);
+
+renderPath(); renderRev(); renderMatrix(); renderArcs(); renderToday();
+if(!fromHash()){try{const v=localStorage.getItem("mcpv-en"); if(VIEWS.includes(v))setView(v)}catch(e){}}
+</script>
+</body>
+</html>

@@ -1,0 +1,39 @@
+# Secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+
+# Databases and runtime data
+*.sqlite
+*.sqlite3
+*.db
+*.db-journal
+*.db-wal
+*.db-shm
+data/
+
+# Environments and dependencies
+.venv/
+venv/
+node_modules/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+.mypy_cache/
+
+# Logs (masked run logs live in mN/runs/ and are committed)
+*.log
+!m[1-7]/runs/*.log
+
+# OpenCode / IDE
+.opencode/
+.vscode/
+.idea/
+.DS_Store
+opencode.local.json
+
+# Playwright MCP
+.playwright-mcp/
