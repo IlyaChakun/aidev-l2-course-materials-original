@@ -1,0 +1,5 @@
+# Keys and local runtime data for the demo stands
+.env
+!.env.example
+.venv/
+.pytest_cache/

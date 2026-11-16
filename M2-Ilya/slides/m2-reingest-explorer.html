@@ -1,0 +1,361 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Re-ingest Explorer</title>
+<style>
+:root{
+  --bg:#f7f7f5; --panel:#ffffff; --ink:#1d1d1f; --muted:#6b6b70; --line:#e2e2e0;
+  --accent:#c2541c; --same:#d9d9d6; --same-ink:#55555a;
+  --changed:#f3a14a; --new:#4caf6a; --orphan:#d64545; --dup:#8e5bd6; --deleted:#b8b8b4;
+  --cache:#3f7fd6; --code:#f0efeb;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#161618; --panel:#202023; --ink:#ececee; --muted:#9a9aa1; --line:#33333a;
+    --accent:#f08a4b; --same:#3a3a40; --same-ink:#c9c9cf;
+    --changed:#e8913a; --new:#46a862; --orphan:#e05a5a; --dup:#a47be6; --deleted:#55555c;
+    --cache:#5b98ec; --code:#2a2a2e;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#161618; --panel:#202023; --ink:#ececee; --muted:#9a9aa1; --line:#33333a;
+  --accent:#f08a4b; --same:#3a3a40; --same-ink:#c9c9cf;
+  --changed:#e8913a; --new:#46a862; --orphan:#e05a5a; --dup:#a47be6; --deleted:#55555c;
+  --cache:#5b98ec; --code:#2a2a2e;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.45 -apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,Helvetica,Arial,sans-serif}
+main{max-width:1440px;margin:0 auto;padding:20px 16px 48px}
+h1{font-size:24px;margin:0 0 4px}
+.lead{color:var(--muted);margin:0 0 16px;max-width:980px}
+code{background:var(--code);padding:1px 5px;border-radius:4px;font-size:13px}
+.panel{background:var(--panel);border:1px solid var(--line);border-radius:10px;padding:14px}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.label{font-size:12px;text-transform:uppercase;letter-spacing:.04em;color:var(--muted);margin-right:4px}
+.group{display:flex;flex-wrap:wrap;gap:6px;align-items:center;margin-right:18px}
+button,select{font:inherit;font-size:14px;border:1px solid var(--line);background:var(--panel);color:var(--ink);border-radius:8px;padding:6px 10px;cursor:pointer}
+button:hover{border-color:var(--accent)}
+button.primary{background:var(--accent);border-color:var(--accent);color:#fff}
+button.preset{text-align:left}
+.presets{display:grid;grid-template-columns:repeat(auto-fill,minmax(250px,1fr));gap:8px;margin-top:10px}
+.presets button b{display:block;font-size:14px}
+.presets button span{display:block;font-size:12px;color:var(--muted)}
+.grid3{display:grid;grid-template-columns:1fr 1fr 1.2fr;gap:14px;margin-top:14px}
+@media (max-width:1000px){.grid3{grid-template-columns:1fr}}
+h2{font-size:15px;margin:0 0 8px}
+h2 small{font-weight:400;color:var(--muted)}
+.cards{display:flex;flex-direction:column;gap:6px}
+.card{border:1px solid var(--line);border-left:6px solid var(--same);border-radius:6px;padding:6px 8px;font-size:13px}
+.card .meta{font-family:ui-monospace,Menlo,monospace;font-size:11.5px;color:var(--muted)}
+.card .txt{margin-top:2px}
+.cells{display:flex;flex-wrap:wrap;gap:3px}
+.cell{width:30px;height:24px;border-radius:4px;font:10.5px/24px ui-monospace,Menlo,monospace;text-align:center;background:var(--same);color:var(--same-ink);cursor:default}
+.s-same{border-left-color:var(--same)} .c-same{background:var(--same);color:var(--same-ink)}
+.s-changed{border-left-color:var(--changed)} .c-changed{background:var(--changed);color:#1d1d1f}
+.s-new{border-left-color:var(--new)} .c-new{background:var(--new);color:#fff}
+.s-orphan{border-left-color:var(--orphan)} .c-orphan{background:var(--orphan);color:#fff}
+.s-dup{border-left-color:var(--dup)} .c-dup{background:var(--dup);color:#fff}
+.s-deleted{border-left-color:var(--deleted);opacity:.55;text-decoration:line-through} .c-deleted{background:transparent;border:1px dashed var(--deleted);color:var(--muted)}
+.tag{display:inline-block;font-size:11px;padding:0 6px;border-radius:9px;margin-left:6px;color:#fff}
+.t-cache{background:var(--cache)} .t-model{background:var(--accent)}
+.legend{display:flex;flex-wrap:wrap;gap:12px;font-size:12.5px;color:var(--muted);margin-top:10px}
+.legend i{display:inline-block;width:12px;height:12px;border-radius:3px;margin-right:5px;vertical-align:-1px}
+.stats{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin-top:14px}
+.stat{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:8px 10px}
+.stat b{display:block;font-size:22px;line-height:1.1}
+.stat span{font-size:12px;color:var(--muted)}
+.stat.bad b{color:var(--orphan)} .stat.good b{color:var(--new)} .stat.warn b{color:var(--accent)}
+.timeline{display:flex;gap:6px;align-items:stretch;margin-top:8px;flex-wrap:wrap}
+.tl{border-radius:6px;padding:6px 10px;font-size:13px;border:1px solid var(--line)}
+.tl.gap{background:color-mix(in srgb,var(--orphan) 18%,transparent);border-color:var(--orphan)}
+.tl.ok{background:color-mix(in srgb,var(--new) 15%,transparent);border-color:var(--new)}
+.log{font-family:ui-monospace,Menlo,monospace;font-size:12px;background:var(--code);border-radius:6px;padding:8px;max-height:220px;overflow:auto;white-space:pre-wrap;margin:0}
+.explain{margin-top:14px}
+.explain p{margin:4px 0}
+.search input{font:inherit;padding:6px 10px;border:1px solid var(--line);border-radius:8px;background:var(--panel);color:var(--ink);min-width:260px}
+.hits{margin-top:8px}
+.muted{color:var(--muted)}
+.scroll{max-height:520px;overflow:auto}
+</style>
+</head>
+<body>
+<main>
+<h1>Re-ingest Explorer</h1>
+<p class="lead">What happens in the vector database when a document changes. Left: the document. Middle: its chunks, each with a hash of its text. Right: the points in the collection after the update. Pick a scenario, or set the options and press an edit button. Companion to Lab 01 step 7.</p>
+
+<div class="panel">
+  <div class="row">
+    <div class="group"><span class="label">Document</span>
+      <select id="docKind"><option value="small">account-and-login.md, 7 sections</option><option value="large">a long manual, 120 sections</option></select></div>
+    <div class="group"><span class="label">Chunking</span>
+      <select id="chunking"><option value="section">one chunk per section (by headings)</option><option value="fixed">every 18 words (fixed size)</option></select></div>
+    <div class="group"><span class="label">Point id</span>
+      <select id="idScheme"><option value="index">uuid5(source#number)</option><option value="hash">uuid5(source + chunk text)</option><option value="random">uuid4 (random)</option></select></div>
+    <div class="group"><span class="label">Update</span>
+      <select id="strategy"><option value="upsert">upsert only</option><option value="delete">delete by source, then upsert</option><option value="diff">upsert changed, then delete stale ids</option></select></div>
+    <div class="group"><label><input type="checkbox" id="cacheOn" checked> embedding cache by text hash</label></div>
+  </div>
+  <div class="row" style="margin-top:10px">
+    <button id="btnReset" class="primary">Reset and load version 1</button>
+    <span class="label" style="margin-left:8px">Change the document</span>
+    <button data-edit="edit">Edit one section</button>
+    <button data-edit="insert">Insert a section in the middle</button>
+    <button data-edit="deleteLast">Remove the last section</button>
+    <button data-edit="step7">Step 7 change (edit + remove last)</button>
+    <button data-edit="same">Re-ingest without changes</button>
+  </div>
+  <div class="presets" id="presets"></div>
+</div>
+
+<div class="stats" id="stats"></div>
+
+<div class="panel explain" id="explain"></div>
+
+<div class="grid3">
+  <div class="panel"><h2>Document <small id="docVer"></small></h2><div id="docView" class="scroll"></div></div>
+  <div class="panel"><h2>Chunks of the new version <small>hash = fingerprint of the text</small></h2><div id="chunkView" class="scroll"></div></div>
+  <div class="panel"><h2>Points in the collection <small id="dbCount"></small></h2><div id="dbView" class="scroll"></div>
+    <div class="legend">
+      <span><i class="c-same"></i>unchanged</span><span><i class="c-changed"></i>overwritten</span><span><i class="c-new"></i>new</span>
+      <span><i class="c-orphan"></i>orphan (text no longer in the document)</span><span><i class="c-dup"></i>duplicate</span>
+      <span><i class="c-deleted" style="border:1px dashed var(--deleted)"></i>deleted in this update</span>
+    </div>
+  </div>
+</div>
+
+<div class="grid3" style="grid-template-columns:1fr 1fr">
+  <div class="panel"><h2>What the indexer sent, in order</h2><pre class="log" id="log"></pre>
+    <div class="timeline" id="timeline"></div></div>
+  <div class="panel search"><h2>Search the collection <small>keyword match, to see what a user would get</small></h2>
+    <div class="row"><input id="q" placeholder="type words, e.g. email address"><button id="btnSearch">Search</button></div>
+    <div class="row" style="margin-top:6px" id="qPresets"></div>
+    <div class="hits" id="hits"></div></div>
+</div>
+</main>
+
+<script>
+const SRC = "account-and-login.md";
+const FIXED_WORDS = 18;
+
+function smallDoc(){ return [
+  {t:"Intro", b:"This guide covers signing in, passwords and account security for Lumen."},
+  {t:"Signing in", b:"Sign in with your work email and password. Single sign-on is available on the Business plan."},
+  {t:"Forgot password", b:"Click Forgot password on the sign-in page. The reset link is valid for 60 minutes and can be used once."},
+  {t:"Changing your password", b:"Open Settings, then Security, and choose Change password. Other devices are signed out."},
+  {t:"Two-factor authentication", b:"Turn on two-factor authentication in Settings, Security, with an authenticator app."},
+  {t:"Sign-in lockout (E-3001)", b:"Repeated failed attempts lock the account for a while and show error E-3001."},
+  {t:"Changing the account email address", b:"Only the account owner can change the email address in Settings, Profile. A confirmation is sent to the new address."},
+];}
+function largeDoc(){
+  const out = [];
+  for (let k = 1; k <= 120; k++) out.push({t:`Section ${k}`, b:`Section ${k} explains topic ${k} of the manual in a few plain sentences so that its chunk has some text.`});
+  return out;
+}
+
+// FNV-1a: a short stand-in for the sha256 used in Lab 01; same idea: same text, same hash.
+function hash(s){ let h = 0x811c9dc5; for (let i = 0; i < s.length; i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 0x01000193) >>> 0; } return h.toString(16).padStart(8,"0"); }
+function rnd(){ return Math.floor(Math.random()*0xffffff).toString(16).padStart(6,"0"); }
+
+const S = { doc:[], version:0, db:new Map(), cache:new Set(), last:null, prevDocHashes:new Set(), editedTitles:new Set() };
+const $ = id => document.getElementById(id);
+const opt = () => ({ kind:$("docKind").value, chunking:$("chunking").value, ids:$("idScheme").value, strategy:$("strategy").value, cacheOn:$("cacheOn").checked });
+
+function chunk(doc, mode){
+  if (mode === "section") return doc.map((s,i) => ({index:i, label:s.t, text:`${s.t}. ${s.b}`}));
+  const words = doc.flatMap(s => `${s.t}. ${s.b}`.split(/\s+/));
+  const out = [];
+  for (let i = 0, n = 0; i < words.length; i += FIXED_WORDS, n++) out.push({index:n, label:`words ${i+1}-${Math.min(i+FIXED_WORDS, words.length)}`, text:words.slice(i, i+FIXED_WORDS).join(" ")});
+  return out;
+}
+function idOf(c, scheme){
+  if (scheme === "index") return `${SRC}#${c.index}`;
+  if (scheme === "hash") return `h:${hash(SRC + c.text)}`;
+  return `r:${rnd()}`;
+}
+function shortId(id){ return id.startsWith(SRC) ? "#" + id.split("#")[1] : id; }
+
+function ingest(newChunks, o, isInitial){
+  const log = [], ops = {model:0, cached:0, written:0, deleted:0, skipped:0};
+  const status = new Map();          // id -> same | changed | new
+  const deletedNow = [];
+  const embed = c => { if (o.cacheOn && S.cache.has(c.h)) { ops.cached++; c.from = "cache"; } else { ops.model++; c.from = "model"; S.cache.add(c.h); } };
+  newChunks.forEach(c => { c.h = hash(c.text); c.id = idOf(c, o.ids); });
+  const upsert = c => {
+    const old = S.db.get(c.id);
+    status.set(c.id, !old ? "new" : (old.h === c.h ? "same" : "changed"));
+    S.db.set(c.id, {id:c.id, text:c.text, h:c.h, label:c.label});
+    ops.written++;
+  };
+  let timeline = [];
+  if (isInitial || o.strategy === "upsert"){
+    newChunks.forEach(embed);
+    log.push(`embed ${newChunks.length} chunks: ${ops.model} by the model, ${ops.cached} from the cache`);
+    newChunks.forEach(upsert);
+    log.push(`PUT /points  upsert ${newChunks.length} points (same id = overwrite, new id = new point)`);
+    timeline = isInitial ? [["ok", `load ${newChunks.length} points`]] : [["ok", `upsert ${newChunks.length}`], ["", "old points with ids that did not come back stay as they were"]];
+  } else if (o.strategy === "delete"){
+    newChunks.forEach(embed);
+    log.push(`embed ${newChunks.length} chunks: ${ops.model} by the model, ${ops.cached} from the cache`);
+    for (const [id, p] of S.db){ deletedNow.push(p); }
+    ops.deleted = S.db.size; S.db.clear();
+    log.push(`POST /points/delete  filter metadata.source = "${SRC}"  → ${ops.deleted} points removed`);
+    newChunks.forEach(c => { status.set(c.id, "new"); S.db.set(c.id, {id:c.id, text:c.text, h:c.h, label:c.label}); ops.written++; });
+    log.push(`PUT /points  upsert ${newChunks.length} points`);
+    // after a full delete everything is technically new; show what changed against the deleted text
+    const oldByH = new Set(deletedNow.map(p => p.h));
+    newChunks.forEach(c => status.set(c.id, oldByH.has(c.h) ? "same" : "changed"));
+    timeline = [["ok", `delete ${ops.deleted}`], ["gap", "the document is missing from search"], ["ok", `upsert ${newChunks.length}`]];
+  } else { // diff
+    const newIds = new Set(newChunks.map(c => c.id));
+    const toWrite = newChunks.filter(c => { const old = S.db.get(c.id); return !old || old.h !== c.h; });
+    ops.skipped = newChunks.length - toWrite.length;
+    toWrite.forEach(embed);
+    newChunks.filter(c => !toWrite.includes(c)).forEach(c => { c.from = "untouched"; status.set(c.id, "same"); });
+    log.push(`compare: ${newChunks.length} chunks, ${ops.skipped} unchanged (same id, same hash) → skipped`);
+    log.push(`embed ${toWrite.length} chunks: ${ops.model} by the model, ${ops.cached} from the cache`);
+    toWrite.forEach(upsert);
+    log.push(`PUT /points  upsert ${toWrite.length} points`);
+    const stale = [...S.db.keys()].filter(id => !newIds.has(id));
+    stale.forEach(id => { deletedNow.push(S.db.get(id)); S.db.delete(id); });
+    ops.deleted = stale.length;
+    log.push(`POST /points/delete  ids no longer produced by the document → ${stale.length} points removed`);
+    timeline = [["ok", `upsert ${toWrite.length}`], ["ok", `delete ${stale.length} stale`], ["", "the document is searchable all the time"]];
+  }
+  const curHashes = new Set(newChunks.map(c => c.h));
+  const seen = new Map();
+  for (const [id, p] of S.db){
+    if (!curHashes.has(p.h)) { p.st = "orphan"; continue; }
+    if (seen.has(p.h)) { p.st = "dup"; continue; }
+    seen.set(p.h, id);
+    p.st = status.get(id) || "same";
+  }
+  S.last = {chunks:newChunks, ops, log, deletedNow, timeline, o, isInitial};
+}
+
+function counts(){
+  let orphans = 0, dups = 0; for (const p of S.db.values()){ if (p.st === "orphan") orphans++; if (p.st === "dup") dups++; }
+  return {orphans, dups};
+}
+
+function render(){
+  const o = opt(), L = S.last, small = S.doc.length <= 12;
+  $("docVer").textContent = `version ${S.version} · ${S.doc.length} sections`;
+  $("docView").innerHTML = small
+    ? `<div class="cards">${S.doc.map(s => `<div class="card ${S.editedTitles.has(s.t) ? "s-changed" : ""}"><b>${s.t}</b><div class="txt">${s.b}</div></div>`).join("")}</div>`
+    : `<div class="cells">${S.doc.map((s,i) => `<div class="cell ${S.editedTitles.has(s.t) ? "c-changed" : ""}" title="${s.t}: ${s.b}">${i+1}</div>`).join("")}</div><p class="muted" style="font-size:12px">Each square is a section; hover for its text. Orange: edited or inserted in the last change.</p>`;
+  if (!L){ return; }
+  const smallChunks = L.chunks.length <= 14;
+  const prevH = S.prevDocHashes;
+  $("chunkView").innerHTML = smallChunks
+    ? `<div class="cards">${L.chunks.map(c => `<div class="card ${prevH.has(c.h) || L.isInitial ? "" : "s-changed"}"><div class="meta">#${c.index} · hash ${c.h} · id ${shortId(c.id)}${c.from === "model" ? '<span class="tag t-model">model</span>' : c.from === "cache" ? '<span class="tag t-cache">cache</span>' : ""}</div><div class="txt">${c.text}</div></div>`).join("")}</div>`
+    : `<div class="cells">${L.chunks.map(c => `<div class="cell ${c.from === "model" ? "c-changed" : ""}" title="#${c.index} · hash ${c.h} · ${c.from || ""}\n${c.text}">${c.index}</div>`).join("")}</div><p class="muted" style="font-size:12px">Orange: sent to the embedding model in this update. Grey: vector from the cache or not needed.</p>`;
+  const pts = [...S.db.values()];
+  const del = L.deletedNow.filter(p => !S.db.has(p.id));   // gone for good (re-upserted ids are shown as points)
+  const smallDb = pts.length + del.length <= 18;
+  const cls = p => p.st || "same";
+  $("dbCount").textContent = `${pts.length} points`;
+  $("dbView").innerHTML = smallDb
+    ? `<div class="cards">${pts.map(p => `<div class="card s-${cls(p)}"><div class="meta">id ${shortId(p.id)} · hash ${p.h} · ${({same:"unchanged",changed:"overwritten",new:"new",orphan:"ORPHAN",dup:"DUPLICATE"})[cls(p)]}</div><div class="txt">${p.text}</div></div>`).join("")}${del.map(p => `<div class="card s-deleted"><div class="meta">id ${shortId(p.id)} · deleted</div><div class="txt">${p.text}</div></div>`).join("")}</div>`
+    : `<div class="cells">${pts.map(p => `<div class="cell c-${cls(p)}" title="id ${shortId(p.id)} · ${cls(p)}\n${p.text}">${p.id.startsWith(SRC) ? p.id.split("#")[1] : "·"}</div>`).join("")}${del.map(p => `<div class="cell c-deleted" title="deleted: ${p.text}">×</div>`).join("")}</div>`;
+  const c = counts(), ops = L.ops;
+  const gap = L.timeline.some(t => t[0] === "gap");
+  $("stats").innerHTML = [
+    ["warn", ops.model, "chunks sent to the embedding model (the expensive part)"],
+    ["", ops.cached, "vectors taken from the cache"],
+    ["", ops.written, "points written (cheap)"],
+    ["", ops.deleted, "points deleted"],
+    ["", pts.length, "points in the collection"],
+    [c.orphans ? "bad" : "good", c.orphans, "orphans: deleted text still searchable"],
+    [c.dups ? "bad" : "good", c.dups, "duplicates"],
+    [gap ? "bad" : "good", gap ? "yes" : "no", "a moment when the document is not searchable"],
+  ].map(([k, v, t]) => `<div class="stat ${k}"><b>${v}</b><span>${t}</span></div>`).join("");
+  $("log").textContent = L.log.join("\n");
+  $("timeline").innerHTML = L.timeline.map(([k, t]) => `<div class="tl ${k}">${t}</div>`).join("<span style='align-self:center'>→</span>");
+  $("explain").innerHTML = explain(L, c, gap);
+  search();
+}
+
+function explain(L, c, gap){
+  const o = L.o, p = [];
+  if (L.isInitial) return `<p><b>Version 1 is loaded:</b> ${L.chunks.length} chunks, ${L.ops.model} sent to the model. Now change the document with a button above, or pick a scenario.</p>`;
+  const ids = {index:"position number (#0, #1, ...)", hash:"hash of the chunk text", random:"a new random value on every run"}[o.ids];
+  p.push(`<p><b>Ids</b> come from the ${ids}. <b>Update:</b> ${{upsert:"upsert only, nothing deleted", delete:"delete every point of the document, then upsert the new version", diff:"upsert only what changed, then delete ids the document no longer produces"}[o.strategy]}.</p>`);
+  if (c.orphans) p.push(`<p><b>${c.orphans} orphan(s):</b> the new version produced fewer chunks or other ids, and nobody overwrote the old point. Its text is gone from the document but search still finds it.</p>`);
+  if (c.dups) p.push(`<p><b>${c.dups} duplicate(s):</b> the same text sits under two ids. With random ids the database cannot recognise the old point, so it adds a new one.</p>`);
+  if (gap) p.push(`<p><b>Gap:</b> between the delete and the upsert the document is not in the collection at all. Usually a fraction of a second; avoid it by upserting first and deleting only stale ids.</p>`);
+  p.push(`<p><b>Cost:</b> ${L.ops.model} of ${L.chunks.length} chunks went to the embedding model${o.cacheOn ? ", the rest came from the cache by text hash" : " (cache off: every chunk that is written is embedded again)"}. Writing ${L.ops.written} points and deleting ${L.ops.deleted} is cheap.</p>`);
+  if (!c.orphans && !c.dups) p.push(`<p><b>Result is clean:</b> the collection holds exactly the chunks of the current version.</p>`);
+  return p.join("");
+}
+
+function search(){
+  const q = $("q").value.toLowerCase().split(/\W+/).filter(w => w.length > 2);
+  if (!q.length){ $("hits").innerHTML = `<p class="muted">Type words or press a preset.</p>`; return; }
+  const scored = [...S.db.values()].map(p => ({p, s:q.filter(w => p.text.toLowerCase().includes(w)).length})).filter(x => x.s).sort((a,b) => b.s - a.s).slice(0,3);
+  $("hits").innerHTML = scored.length ? `<div class="cards">${scored.map(({p,s}) => `<div class="card s-${p.st || "same"}"><div class="meta">id ${shortId(p.id)} · ${s} word(s) match${p.st === "orphan" ? " · <b>ORPHAN: this text is no longer in the document</b>" : p.st === "dup" ? " · DUPLICATE" : ""}</div><div class="txt">${p.text}</div></div>`).join("")}</div>`
+    : `<p class="muted">Nothing found: the collection has no such text. An agent should answer "not covered".</p>`;
+}
+
+function edit(kind){
+  if (!S.version) reset();
+  const small = $("docKind").value === "small", k = small ? 2 : 54;
+  S.prevDocHashes = new Set(chunk(S.doc, $("chunking").value).map(c => hash(c.text)));
+  S.editedTitles = new Set();
+  const doc = S.doc.map(s => ({...s}));
+  if (kind === "edit" || kind === "step7"){
+    const s = doc[Math.min(k, doc.length - 1)];
+    s.b = small ? s.b.replace("60 minutes", "30 minutes") + (kind === "edit" ? " A new link can be requested right away." : "")
+                : s.b + " It now also describes the new option added this week.";
+    S.editedTitles.add(s.t);
+  }
+  if (kind === "insert"){
+    const s = small ? {t:"Passkeys", b:"You can sign in with a passkey instead of a password on supported devices."} : {t:`Section ${k+1}a`, b:`A new section inserted after section ${k+1} with text that did not exist before.`};
+    doc.splice(k + 1, 0, s); S.editedTitles.add(s.t);
+  }
+  if (kind === "deleteLast" || kind === "step7") doc.pop();
+  S.doc = doc; S.version++;
+  ingest(chunk(S.doc, $("chunking").value), opt(), false);
+  render();
+}
+
+function reset(){
+  S.doc = $("docKind").value === "small" ? smallDoc() : largeDoc();
+  S.version = 1; S.db = new Map(); S.cache = new Set(); S.editedTitles = new Set(); S.prevDocHashes = new Set();
+  ingest(chunk(S.doc, $("chunking").value), opt(), true);
+  render();
+}
+
+const PRESETS = [
+  {n:"Step 7, wrong: upsert without delete", d:"7 chunks become 6; #6 is never overwritten", set:{docKind:"small",chunking:"section",idScheme:"index",strategy:"upsert",cacheOn:true}, edit:"step7", q:"email address"},
+  {n:"Step 7, right: delete by source, then upsert", d:"clean result, but a short gap", set:{docKind:"small",chunking:"section",idScheme:"index",strategy:"delete",cacheOn:true}, edit:"step7", q:"email address"},
+  {n:"Step 7 without a gap", d:"upsert first, then delete only stale ids", set:{docKind:"small",chunking:"section",idScheme:"index",strategy:"diff",cacheOn:true}, edit:"step7", q:"email address"},
+  {n:"Random ids: every reload duplicates", d:"uuid4, the same document loaded again", set:{docKind:"small",chunking:"section",idScheme:"random",strategy:"upsert",cacheOn:true}, edit:"same", q:"reset link"},
+  {n:"Chunk 55 of 120 edited, with cache", d:"one call to the model, 120 cheap writes", set:{docKind:"large",chunking:"section",idScheme:"index",strategy:"delete",cacheOn:true}, edit:"edit", q:"new option"},
+  {n:"Chunk 55 of 120 edited, no cache", d:"all 120 chunks go to the model again", set:{docKind:"large",chunking:"section",idScheme:"index",strategy:"delete",cacheOn:false}, edit:"edit", q:"new option"},
+  {n:"Insert a section, ids by position", d:"numbers after 55 shift: many overwrites", set:{docKind:"large",chunking:"section",idScheme:"index",strategy:"diff",cacheOn:true}, edit:"insert", q:"inserted"},
+  {n:"Insert a section, ids by text hash", d:"exactly one new point", set:{docKind:"large",chunking:"section",idScheme:"hash",strategy:"diff",cacheOn:true}, edit:"insert", q:"inserted"},
+  {n:"Fixed-size chunks: one edit shifts the rest", d:"every chunk after the edit gets new text", set:{docKind:"large",chunking:"fixed",idScheme:"hash",strategy:"diff",cacheOn:true}, edit:"edit", q:"new option"},
+];
+$("presets").innerHTML = PRESETS.map((p,i) => `<button class="preset" data-p="${i}"><b>${p.n}</b><span>${p.d}</span></button>`).join("");
+function runPreset(i){
+  const p = PRESETS[i];
+  for (const [k, v] of Object.entries(p.set)) { const el = $(k); if (el.type === "checkbox") el.checked = v; else el.value = v; }
+  reset(); $("q").value = p.q; edit(p.edit);
+  history.replaceState(null, "", "#preset=" + i);
+}
+$("presets").addEventListener("click", e => { const b = e.target.closest("button[data-p]"); if (b) runPreset(+b.dataset.p); });
+document.querySelectorAll("button[data-edit]").forEach(b => b.addEventListener("click", () => edit(b.dataset.edit)));
+$("btnReset").addEventListener("click", reset);
+["docKind","chunking"].forEach(id => $(id).addEventListener("change", reset));
+$("btnSearch").addEventListener("click", search);
+$("q").addEventListener("keydown", e => { if (e.key === "Enter") search(); });
+$("qPresets").innerHTML = ["email address","reset link","passkey","new option"].map(q => `<button data-q="${q}">${q}</button>`).join("");
+$("qPresets").addEventListener("click", e => { const b = e.target.closest("button[data-q]"); if (b){ $("q").value = b.dataset.q; search(); } });
+reset();
+const deep = location.hash.match(/preset=(\d+)/);
+if (deep && PRESETS[+deep[1]]) runPreset(+deep[1]);
+</script>
+</body>
+</html>

@@ -1,0 +1,7 @@
+# Pinned for the lecture (checked on Python 3.12, macOS arm64).
+httpx==0.28.1
+numpy==2.5.4
+openai==3.42.0
+rich==15.0.0
+tiktoken==0.14.0
+fastembed==0.9.1

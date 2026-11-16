@@ -1,0 +1,73 @@
+name: m2-demo-pgvector-qdrant
+
+services:
+  postgres:
+    # pgvector 0.8.7 on PostgreSQL 18 (tag verified on Docker Hub, 2026-11-01)
+    image: pgvector/pgvector:0.8.7-pg18
+    environment:
+      POSTGRES_USER: demo
+      POSTGRES_PASSWORD: demo
+      POSTGRES_DB: lumen
+    # HNSW build happens in maintenance_work_mem; parallel build workers use /dev/shm,
+    # and Docker's default 64MB shm is too small for that.
+    command:
+      - postgres
+      - -c
+      - maintenance_work_mem=512MB
+      - -c
+      - max_parallel_maintenance_workers=2
+      - -c
+      - shared_buffers=256MB
+    shm_size: 1g
+    ports:
+      - "127.0.0.1:5441:5432"
+    volumes:
+      # PostgreSQL 18 images keep data under /var/lib/postgresql/18/docker
+      - pgdata:/var/lib/postgresql
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U demo -d lumen"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    ports:
+      - "127.0.0.1:6361:6333"
+      - "127.0.0.1:6362:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+      - qdrant_snapshots:/qdrant/snapshots
+    healthcheck:
+      # the image has no curl/wget, bash /dev/tcp is enough to see the port is open
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+
+  demo:
+    # Python client in a container: same versions on every laptop, no host venv needed.
+    build: .
+    image: m2-demo-pgvector-qdrant-cli:1
+    profiles: ["cli"]
+    working_dir: /app
+    environment:
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      PG_DSN: postgresql://demo:demo@postgres:5432/lumen
+      QDRANT_URL: http://qdrant:6333
+      COLUMNS: ${COLUMNS:-120}
+      PYTHONUNBUFFERED: "1"
+      PYTHONDONTWRITEBYTECODE: "1"
+    volumes:
+      - ./:/app
+      - ../_shared:/shared:ro
+    depends_on:
+      postgres:
+        condition: service_healthy
+      qdrant:
+        condition: service_healthy
+
+volumes:
+  pgdata:
+  qdrant_data:
+  qdrant_snapshots:

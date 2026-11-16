@@ -1,0 +1,1037 @@
+docker compose up -d --wait
+ Volume m2-demo-embeddings_qdrant_storage Creating 
+ Network m2-demo-embeddings_default Creating 
+ Network m2-demo-embeddings_default Creating 
+ Volume m2-demo-embeddings_qdrant_storage Creating 
+ Volume m2-demo-embeddings_qdrant_storage Created 
+ Volume m2-demo-embeddings_qdrant_storage Created 
+ Network m2-demo-embeddings_default Created 
+ Network m2-demo-embeddings_default Created 
+ Container m2-demo-embeddings-qdrant-1 Creating 
+ Container m2-demo-embeddings-qdrant-1 Created 
+ Container m2-demo-embeddings-qdrant-1 Starting 
+ Container m2-demo-embeddings-qdrant-1 Started 
+ Container m2-demo-embeddings-qdrant-1 Waiting 
+ Container m2-demo-embeddings-qdrant-1 Healthy 
+.venv/bin/python step0_corpus.py
+────────────────────────────────────────────────── Step 0. The corpus and the golden set ───────────────────────────────────────────────────
+Before any search: the documents the agent can know, and the questions with marked answers we will measure it on. Steps 1-4 do not need 
+Qdrant either.
+
+0.1 The corpus  _shared/corpus/*.md
+                       Documents by section (the 'section' key of the front matter)                        
+┏━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ section   ┃ documents ┃ tokens ┃ for example                                                            ┃
+┡━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Policy    │         8 │ 15 445 │ complaints-handling-procedure, data-privacy-and-gdpr-requests, ...     │
+│ Billing   │         4 │  9 678 │ billing-invoices-and-payments, enterprise-contracts-and-discounts, ... │
+│ Technical │         4 │  9 739 │ integrations-and-api, release-notes-and-known-issues, ...              │
+│ Product   │         4 │  9 593 │ mobile-app-guide, notifications-and-alerts, ...                        │
+│ Account   │         2 │  4 997 │ account-and-login, team-and-roles                                      │
+├───────────┼───────────┼────────┼────────────────────────────────────────────────────────────────────────┤
+│ total     │        22 │ 49 452 │                                                                        │
+└───────────┴───────────┴────────┴────────────────────────────────────────────────────────────────────────┘
+Front matter of account-and-login.md (the file name becomes 'source'):
+---
+title: Account and Login Guide
+section: Account
+date: 2026-03-12
+---
+
+0.2 Two corpus rules from ../_shared/corpus_spec.md, checked on the files
+              Rule 1: one fact lives in one document               
+┏━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ fact                ┃ text searched ┃ documents that contain it ┃
+┡━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ reset link lifetime │ 60 minutes    │ account-and-login         │
+│ extra seat price    │ $5 per seat   │ plans-and-pricing         │
+│ Team export limit   │ 100,000       │ reports-and-exports       │
+│ Business plan price │ $149          │ plans-and-pricing         │
+│ error code          │ E-4012        │ payment-errors-reference  │
+└─────────────────────┴───────────────┴───────────────────────────┘
+5 of 5 facts sit in exactly one document.
+
+   Rule 2: some topics are kept out of the   
+  corpus on purpose, for the trap questions  
+┏━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ topic         ┃ documents that mention it ┃
+┡━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ Salesforce    │                         0 │
+│ dark mode     │                         0 │
+│ on-premise    │                         0 │
+│ self-hosted   │                         0 │
+│ phone support │                         0 │
+└───────────────┴───────────────────────────┘
+5 of 5 trap topics appear in no document.
+
+0.3 The golden set  _shared/golden.json
+                                                               What is in it                                                                
+┏━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ kind  ┃ questions ┃ example                                                               ┃ marked answer                                ┃
+┡━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ core  │        10 │ I clicked 'forgot password' but the reset email never showed up. What │ account-and-login.md                         │
+│       │           │ should I check?                                                       │                                              │
+│ multi │         5 │ I'm on the Starter plan and need to export about 50,000 rows. Is that │ reports-and-exports.md, plans-and-pricing.md │
+│       │           │ possible, and which plan would I need?                                │                                              │
+│ trap  │         2 │ How do I connect Lumen to Salesforce?                                 │ none: the agent must refuse                  │
+└───────┴───────────┴───────────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────┘
+The marked answers cover 15 of 22 documents. Origin of the questions: model-drafted, human review pending.
+
+Takeaway: the corpus is everything the agent can know, the golden set is the answer key; both are fixed before the first chunk is loaded.
+.venv/bin/python step1_bm25.py
+──────────────────────────────────────── Step 1. Search before embeddings: inverted index and BM25 ─────────────────────────────────────────
+Pure Python, three tiny documents, no models.
+
+                                         Documents and their tokens (lowercase, stop words removed)                                         
+┏━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ id ┃ text                                                        ┃ tokens                                                       ┃ length ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ d0 │ In Lumen, reset your password from the sign-in page. The    │ lumen reset password sign page reset link valid 60 minutes   │     10 │
+│    │ reset link is valid for 60 minutes.                         │                                                              │        │
+├────┼─────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┼────────┤
+│ d1 │ Lumen error E-4031 means the card currency is not           │ lumen error e-4031 means card currency supported try another │     12 │
+│    │ supported. Try another card or contact your bank.           │ card contact bank                                            │        │
+├────┼─────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────┼────────┤
+│ d2 │ Export a Lumen report as CSV from the Reports page. Viewers │ export lumen report csv reports page viewers cannot export   │     13 │
+│    │ cannot export reports. Export, export, export!              │ reports export export export                                 │        │
+└────┴─────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────┴────────┘
+Average document length avgdl = 11.67 tokens. The tokenizer keeps codes like E-4031 as a single word.
+
+ Inverted index: word → which documents (tf) and its  
+                         IDF                          
+┏━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━┳━━━━━━━┓
+┃ term     ┃ posting list (document:tf) ┃ df ┃   IDF ┃
+┡━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━╇━━━━━━━┩
+│ lumen    │ d0:1, d1:1, d2:1           │  3 │ 0.134 │
+│ page     │ d0:1, d2:1                 │  2 │ 0.470 │
+│ card     │ d1:2                       │  1 │ 0.981 │
+│ e-4031   │ d1:1                       │  1 │ 0.981 │
+│ export   │ d2:5                       │  1 │ 0.981 │
+│ password │ d0:1                       │  1 │ 0.981 │
+│ reset    │ d0:2                       │  1 │ 0.981 │
+└──────────┴────────────────────────────┴────┴───────┘
+IDF = ln(1 + (N - df + 0.5) / (df + 0.5)). A word present in all documents weighs almost nothing, a rare word weighs a lot.
+
+     Saturation: contribution of the word 'export'      
+   (IDF=0.981) at tf = 1..10, average-length document   
+┏━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ tf ┃ TF-IDF (tf * idf) ┃ BM25, k1=1.2 ┃ BM25, k1=2.0 ┃
+┡━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│  1 │             0.981 │        0.981 │        0.981 │
+│  2 │             1.962 │        1.349 │        1.471 │
+│  3 │             2.942 │        1.541 │        1.765 │
+│  5 │             4.904 │        1.740 │        2.102 │
+│ 10 │             9.808 │        1.927 │        2.452 │
+└────┴───────────────────┴──────────────┴──────────────┘
+BM25 ceiling = IDF * (k1 + 1) = 2.158 at k1=1.2: the tenth occurrence of a word adds almost nothing. The parameter b=0.75 penalizes long 
+documents.
+
+                                              Queries → BM25 document scores                                              
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ query                  ┃ query tokens        ┃    d0 ┃    d1 ┃    d2 ┃ takeaway                                        ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ reset password link    │ reset password link │ 3.489 │     0 │     0 │ exact words → finds d0                          │
+│ What does E-4031 mean? │ e-4031 mean         │     0 │ 0.969 │     0 │ error code → finds d1                           │
+│ Lumen export           │ lumen export        │ 0.142 │ 0.132 │ 1.839 │ 'lumen' is everywhere and weighs almost nothing │
+│ can't log in           │ log                 │     0 │     0 │     0 │ no words in common → zero everywhere            │
+│ сбросить пароль        │ сбросить пароль     │     0 │     0 │     0 │ another language → zero everywhere              │
+└────────────────────────┴─────────────────────┴───────┴───────┴───────┴─────────────────────────────────────────────────┘
+
+Takeaway: BM25 matches words. It reliably finds an error code, but not a paraphrase or another language.
+.venv/bin/python step2_embeddings.py
+───────────────────────────────────────────────────────── Step 2. Text → embedding ─────────────────────────────────────────────────────────
+Model text-embedding-3-small: a text becomes an array of 1536 numbers. Texts with similar meaning lie close together.
+
+                                                 What the model returns                                                 
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━┓
+┃ text                         ┃ length ┃ first 8 numbers                                                 ┃ norm ||v|| ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━┩
+│ I can't log in to my account │   1536 │ +0.0788 +0.0032 +0.0459 -0.0132 +0.0511 -0.0112 -0.0044 +0.0584 │     1.0000 │
+└──────────────────────────────┴────────┴─────────────────────────────────────────────────────────────────┴────────────┘
+Norm = 1.0: OpenAI returns normalized vectors. The numbers mean nothing on their own, the meaning is only in the distances.
+
+                      Closeness to the phrase "I can't log in to my account"                       
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━┳━━━━━━━━┓
+┃ phrase                                                ┃ shared words ┃ cosine ┃    dot ┃ euclid ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━╇━━━━━━━━┩
+│ Не могу войти в аккаунт                               │            0 │ 0.5955 │ 0.5954 │ 0.8994 │
+│ How do I reset my password?                           │            0 │ 0.4716 │ 0.4715 │ 1.0278 │
+│ Where can I download my invoice for the last payment? │            0 │ 0.2655 │ 0.2655 │ 1.2121 │
+│ The weather in Lisbon is sunny today                  │            0 │ 0.0493 │ 0.0493 │ 1.3790 │
+└───────────────────────────────────────────────────────┴──────────────┴────────┴────────┴────────┘
+cosine and dot match (the difference is at most 0.0002, float rounding): for vectors of length 1 cosine = dot, and euclid = sqrt(2 - 2 * 
+cosine), the order is the same.
+The absolute values of this model are compressed (rarely above 0.7): look at the order, not at the number.
+
+Takeaway: "can't log in" and "reset password" share no words, yet lie close together. BM25 from step 1 would give zero. The Russian phrase 
+is next to the English one: the model is multilingual.
+embeddings: from cache 5, API requests 0 (0 texts)
+.venv/bin/python step3_bm25_vs_dense.py
+────────────────────────────────────────────── Step 3. BM25 vs embeddings on the Lumen corpus ──────────────────────────────────────────────
+22 documents are cut into chunks (we show how in step 4). Dense is brute force in numpy: chunk matrix @ query vector. There is no database 
+yet.
+
+Chunks: 147, embedding matrix (147, 1536). embeddings: from cache 150, API requests 0 (0 texts)
+
+                                                    Error code: "What does E-4031 mean?"                                                    
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ BM25 (word match)                                                 ┃ Dense (cosine, meaning)                                          ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ integrations-and-api > Frequently asked questions                 │ troubleshooting-and-error-codes > Quick reference of error codes │
+│   │ 4.346                                                             │ 0.411                                                            │
+├───┼───────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 2 │ payment-errors-reference > E-4031 Currency not supported by card  │ payment-errors-reference > E-4012 Payment method rejected        │
+│   │ <- answer                                                         │ 0.398                                                            │
+│   │ 4.051                                                             │                                                                  │
+├───┼───────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 3 │ payment-errors-reference > Amount disputes and escalation         │ troubleshooting-and-error-codes > E-1105 "Report render failed"  │
+│   │ 3.800                                                             │ 0.394                                                            │
+├───┼───────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 4 │ enterprise-contracts-and-discounts > The Contract discount line   │ payment-errors-reference > E-4031 Currency not supported by card │
+│   │ on invoices                                                       │ <- answer                                                        │
+│   │ 3.509                                                             │ 0.393                                                            │
+├───┼───────────────────────────────────────────────────────────────────┼──────────────────────────────────────────────────────────────────┤
+│ 5 │ payment-errors-reference > Intro                                  │ payment-errors-reference > Intro                                 │
+│   │ 3.492                                                             │ 0.358                                                            │
+└───┴───────────────────────────────────────────────────────────────────┴──────────────────────────────────────────────────────────────────┘
+                         green: document payment-errors-reference.md, "<- answer": the chunk that holds the answer                          
+query tokens for BM25: e-4031 mean
+
+                      Paraphrase: "I'm a viewer on my company's workspace. Why is the export button missing for me?"                      
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ BM25 (word match)                                         ┃ Dense (cosine, meaning)                                                ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ team-and-roles > Intro  <- answer                         │ data-privacy-and-gdpr-requests > Requesting a data export              │
+│   │ 12.519                                                    │ 0.465                                                                  │
+├───┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ 2 │ team-and-roles > Common questions  <- answer              │ team-and-roles > Intro  <- answer                                      │
+│   │ 9.884                                                     │ 0.456                                                                  │
+├───┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ 3 │ team-and-roles > Changing roles                           │ reports-and-exports > The Reports page is blank or Export does nothing │
+│   │ 6.744                                                     │ 0.453                                                                  │
+├───┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ 4 │ reports-and-exports > Intro                               │ reports-and-exports > Frequently asked questions                       │
+│   │ 6.576                                                     │ 0.440                                                                  │
+├───┼───────────────────────────────────────────────────────────┼────────────────────────────────────────────────────────────────────────┤
+│ 5 │ data-privacy-and-gdpr-requests > Requesting a data export │ team-and-roles > Who can invite and remove people                      │
+│   │ 6.400                                                     │ 0.435                                                                  │
+└───┴───────────────────────────────────────────────────────────┴────────────────────────────────────────────────────────────────────────┘
+                             green: document team-and-roles.md, "<- answer": the chunk that holds the answer                              
+query tokens for BM25: viewer company workspace export button missing
+
+    Russian question: "Ссылка для сброса пароля перестала работать. Сколько она вообще     
+                                        действует?"                                        
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ BM25 (word match)     ┃ Dense (cosine, meaning)                                     ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ — no matching words — │ account-and-login > Forgot password  <- answer              │
+│   │                       │ 0.356                                                       │
+├───┼───────────────────────┼─────────────────────────────────────────────────────────────┤
+│ 2 │ — no matching words — │ account-and-login > Changing your password                  │
+│   │                       │ 0.319                                                       │
+├───┼───────────────────────┼─────────────────────────────────────────────────────────────┤
+│ 3 │ — no matching words — │ account-and-login > Sign-in lockout (E-3001)                │
+│   │                       │ 0.318                                                       │
+├───┼───────────────────────┼─────────────────────────────────────────────────────────────┤
+│ 4 │ — no matching words — │ account-and-login > Lost phone or lost authenticator access │
+│   │                       │ 0.284                                                       │
+├───┼───────────────────────┼─────────────────────────────────────────────────────────────┤
+│ 5 │ — no matching words — │ account-and-login > Two-factor authentication               │
+│   │                       │ 0.266                                                       │
+└───┴───────────────────────┴─────────────────────────────────────────────────────────────┘
+    green: document account-and-login.md, "<- answer": the chunk that holds the answer     
+query tokens for BM25: ссылка для сброса пароля перестала работать сколько она вообще действует
+
+ Summary: rank of the first chunk with  
+ the answer (out of all corpus chunks)  
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━┓
+┃ question         ┃      BM25 ┃ Dense ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━┩
+│ Error code       │         2 │     4 │
+│ Paraphrase       │         1 │     2 │
+│ Russian question │ not found │     1 │
+└──────────────────┴───────────┴───────┘
+Takeaway: each method has its own blind spots. That is why the homework uses a hybrid: dense + BM25, the result lists are merged (step 6).
+.venv/bin/python step4_chunking.py
+─────────────────────────────────────────────────────── Step 4. Chunking by headings ───────────────────────────────────────────────────────
+Split by H2, target ~400 tokens (range 300-500), tables and code are never broken, each chunk gets a "Title > Heading" prefix.
+
+              Corpus before and after chunking               
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ what                                 ┃           how many ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ documents                            │                 22 │
+│ tokens in the corpus                 │             49 452 │
+│ tokens per document: min / avg / max │ 1747 / 2248 / 2618 │
+│ chunks                               │                147 │
+│ tokens per chunk: min / avg / max    │    155 / 341 / 496 │
+│ chunks in the 300-500 range          │         111 of 147 │
+│ chunks shorter than 300              │                 36 │
+│ chunks longer than 500               │                  0 │
+└──────────────────────────────────────┴────────────────────┘
+                     Chunk length distribution (tokens)                     
+┏━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ range   ┃ chunks ┃                                                       ┃
+┡━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ < 200   │      3 │ ###                                                   │
+│ 200-249 │      7 │ #######                                               │
+│ 250-299 │     26 │ ##########################                            │
+│ 300-349 │     53 │ ##################################################### │
+│ 350-399 │     26 │ ##########################                            │
+│ 400-449 │     21 │ #####################                                 │
+│ 450-500 │     11 │ ###########                                           │
+│ > 500   │      0 │                                                       │
+└─────────┴────────┴───────────────────────────────────────────────────────┘
+                  Overlap and blocks that must stay whole (homework requirements)                  
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ check                                       ┃                                              fact ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ sections longer than 500, split into pieces │                                                 2 │
+│ chunks that start with overlap              │ Available integrations (2 tok); Webhooks (16 tok) │
+│ overlap share of all chunk tokens           │                                             0.04% │
+│ tables kept whole in one chunk              │                                          58 of 58 │
+│ code blocks kept whole in one chunk         │                                          27 of 27 │
+└─────────────────────────────────────────────┴───────────────────────────────────────────────────┘
+                 Shortest chunks: why the config is not the fact                  
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ chunk                                                                 ┃ tokens ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ integrations-and-api > Frequently asked questions                     │    155 │
+│ integrations-and-api > Available integrations                         │    163 │
+│ complaints-handling-procedure > Frequently asked questions            │    182 │
+│ release-notes-and-known-issues > Release 4.13.x: saved-report folders │    200 │
+│ notifications-and-alerts > Slack notifications                        │    202 │
+│ release-notes-and-known-issues > Frequently asked questions           │    224 │
+│ reports-and-exports > Frequently asked questions                      │    224 │
+│ system-requirements-and-browsers > Screen size                        │    232 │
+│ team-and-roles > Changing roles                                       │    248 │
+│ security-and-compliance > Compliance statements                       │    249 │
+└───────────────────────────────────────────────────────────────────────┴────────┘
+A short section did not merge with its neighbor: together they would exceed 500. That is fine, but you need to see it, not assume it.
+
+╭───────────────────── account-and-login > Forgot password  ·  352 tokens  ·  chunk #2 ──────────────────────╮
+│ Account and Login Guide > Forgot password                                                                  │
+│                                                                                                            │
+│ If you cannot remember your password, you can set a new one without help from support.                     │
+│                                                                                                            │
+│ 1. Open the sign-in page.                                                                                  │
+│ 2. Select **Forgot password?** below the password field.                                                   │
+│ 3. Enter the email address of your account and submit the form.                                            │
+│ 4. Open the email from Lumen and select the reset link.                                                    │
+│ 5. Choose a new password and confirm it.                                                                   │
+│                                                                                                            │
+│ The reset link is valid for **60 minutes** and can be used **once**. After you have set the new password,  │
+│ the same link stops working. If you need another one, start again from the sign-in page. A new request     │
+│ makes earlier links obsolete, so always use the most recent email.                                         │
+│                                                                                                            │
+│ The email usually arrives within **5 minutes**. If it has not arrived after that time:                     │
+│                                                                                                            │
+│ - Check your Spam or Junk folder, and any "Promotions" or "Updates" tabs your mail provider creates.       │
+│ - Make sure you typed the address of the account, not another address you own. Lumen shows the same        │
+│ confirmation message whether or not the address is registered, so that outsiders cannot discover who has   │
+│ an account.                                                                                                │
+│ - Ask your IT administrator whether your company mail system filters or delays automated messages.         │
+│ Messages are sent from a lumen.example sender address, which can be added to an allow list.                │
+│ - Wait for the full 5 minutes before requesting a second email. Requesting many emails in a row only makes │
+│ the earlier links stop working.                                                                            │
+│                                                                                                            │
+│ If the link says it has expired or was already used, request a new one. If the email never arrives even    │
+│ after these checks, the support team can look at the situation, but they cannot set a password for you and │
+│ will never ask you to tell them a password.                                                                │
+╰───────────── the first line is the "Title > Heading" prefix, it also goes into the embedding ──────────────╯
+      Chunks of one document: account-and-login.md      
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ # ┃ heading (first H2 in the chunk)         ┃ tokens ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ 0 │ Intro                                   │    377 │
+│ 1 │ Changing your password                  │    405 │
+│ 2 │ Forgot password                         │    352 │
+│ 3 │ Sign-in lockout (E-3001)                │    329 │
+│ 4 │ Two-factor authentication               │    378 │
+│ 5 │ Lost phone or lost authenticator access │    318 │
+│ 6 │ Changing the account email address      │    407 │
+└───┴─────────────────────────────────────────┴────────┘
+The chunk number within the document will be needed in step 5: id = uuid5(source#index).
+.venv/bin/python step5_ingest.py
+───────────────────────────────────────────────── Step 5. Loading into Qdrant step by step ─────────────────────────────────────────────────
+Qdrant 1.19.2 at http://localhost:6341, collection "lumen_demo".
+
+5.1 Creating the collection: unnamed dense + named sparse "bm25"  PUT /collections/lumen_demo
+{
+  "vectors": {
+    "size": 1536,
+    "distance": "Cosine"
+  },
+  "sparse_vectors": {
+    "bm25": {
+      "modifier": "idf"
+    }
+  },
+  "metadata": {
+    "embedding_model": "text-embedding-3-small",
+    "sparse_model": "Qdrant/bm25",
+    "chunker": "h2-400tok"
+  }
+}
+response: true
+
+5.2 Index on metadata.source before loading (needed for filters and deletion in step 7)  PUT /collections/lumen_demo/index
+{
+  "field_name": "metadata.source",
+  "field_schema": "keyword"
+}
+response: {
+  "operation_id": 2,
+  "status": "acknowledged"
+}
+
+5.3 Embeddings: 147 chunks from 22 documents → matrix (147, 1536), 0.0 s. embeddings: from cache 147, API requests 0 (0 texts)
+
+5.4 Chunk identifier: uuid5(namespace, "account-and-login.md#0") = 89d810a8-fe18-5abf-88bb-29a2b3911e0b
+The same document and number give the same id on every restart: upsert overwrites the point instead of creating a duplicate.
+
+5.5 Upsert in batches of 64, wait=true  PUT /collections/lumen_demo/points?wait=true
+{
+  "points": [
+    {
+      "id": "89d810a8-fe18-5abf-88bb-29a2b3911e0b",
+      "vector": {
+        "": [0.0178, 0.0118, 0.0223, 0.0025, 0.0415, -0.0325, "... 1530 more"],
+        "bm25": {
+          "text": "Account and Login Guide > Intro\n\nThis guide explains how to sign in to Lumen, how to manage your password, how 
+two-factor authentication works, and what to do w... (+1685 chars)",
+          "model": "Qdrant/bm25"
+        }
+      },
+      "payload": {
+        "content": "Account and Login Guide > Intro\n\nThis guide explains how to sign in to Lumen, how to manage your password, how 
+two-factor authentication works, and what to do w... (+1685 chars)",
+        "metadata": {
+          "source": "account-and-login.md",
+          "title": "Account and Login Guide",
+          "section": "Account",
+          "date": "2026-03-12"
+        }
+      }
+    },
+    "..."
+  ]
+}
+  batch 1: points 64, status completed, 0.15 s
+  batch 2: points 64, status completed, 0.10 s
+  batch 3: points 19, status completed, 0.04 s
+
+                                                       5.6 Verification after loading                                                       
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ what                                   ┃ value                                                                                           ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ chunks sent                            │ 147                                                                                             │
+│ points in the collection (count exact) │ 147                                                                                             │
+│ collection status                      │ green                                                                                           │
+│ dense                                  │ size=1536, distance=Cosine                                                                      │
+│ sparse                                 │ {'bm25': {'modifier': 'idf'}}                                                                   │
+│ collection metadata                    │ {'embedding_model': 'text-embedding-3-small', 'sparse_model': 'Qdrant/bm25', 'chunker':         │
+│                                        │ 'h2-400tok'}                                                                                    │
+│ payload indexes                        │ metadata.source                                                                                 │
+└────────────────────────────────────────┴─────────────────────────────────────────────────────────────────────────────────────────────────┘
+
+One point as Qdrant stores it (dense truncated; sparse "bm25": 99 non-zero dimensions out of 2^32 possible)
+{
+  "id": "89d810a8-fe18-5abf-88bb-29a2b3911e0b",
+  "payload": {
+    "content": "Account and Login Guide > Intro\n\nThis guide explains how to sign in to Lumen, how to manage your password, how two-factor 
+authentication works, and what to do w... (+1685 chars)",
+    "metadata": {
+      "source": "account-and-login.md",
+      "title": "Account and Login Guide",
+      "section": "Account",
+      "date": "2026-03-12"
+    }
+  },
+  "vector": {
+    "": [0.0178, 0.0118, 0.0223, 0.0025, 0.0415, "... 1531 more"],
+    "bm25": {
+      "indices": [8834632, 42416133, 46822007, 47849770, 77337506, "... 94 more"],
+      "values": [1.168, 1.168, 1.6995, 1.6995, 1.6995, "... 94 more"]
+    }
+  }
+}
+
+Dashboard: http://localhost:6341/dashboard#/collections/lumen_demo  (make dashboard)
+.venv/bin/python step6_query.py
+───────────────────────────────────────────── Step 6. Querying Qdrant: dense, bm25 and hybrid ──────────────────────────────────────────────
+Everything through one endpoint POST /collections/lumen_demo/points/query (/search is deprecated: dropped from the API spec in 1.19).
+
+Collection check (lumen_demo): text-embedding-3-small, 1536 dims, the same model as in the code.
+
+The whole hybrid query (vector truncated): two branches in prefetch with 20 candidates each, then RRF fusion and top-5
+{
+  "prefetch": [
+    {
+      "query": [-0.0075, -0.0412, 0.048, -0.0066, "... 1532 more"],
+      "limit": 20
+    },
+    {
+      "query": {
+        "text": "What does E-4031 mean?",
+        "model": "Qdrant/bm25"
+      },
+      "using": "bm25",
+      "limit": 20
+    }
+  ],
+  "query": {
+    "fusion": "rrf"
+  },
+  "limit": 5,
+  "with_payload": true
+}
+
+                                                    Error code: "What does E-4031 mean?"                                                    
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ dense (cosine)                             ┃ bm25 (BM25 from Qdrant)                    ┃ hybrid (RRF)                               ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ troubleshooting-and-error-codes > Quick    │ payment-errors-reference > Intro           │ payment-errors-reference > Intro           │
+│   │ reference of error codes                   │ 10.2046                                    │ 0.6667                                     │
+│   │ 0.4108                                     │                                            │                                            │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 2 │ payment-errors-reference > E-4012 Payment  │ payment-errors-reference > E-4031 Currency │ troubleshooting-and-error-codes > Quick    │
+│   │ method rejected                            │ not supported by card  <- answer           │ reference of error codes                   │
+│   │ 0.3978                                     │ 9.1720                                     │ 0.6667                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 3 │ troubleshooting-and-error-codes > E-1105   │ payment-errors-reference > Amount disputes │ payment-errors-reference > E-4031 Currency │
+│   │ "Report render failed"                     │ and escalation                             │ not supported by card  <- answer           │
+│   │ 0.3940                                     │ 8.2533                                     │ 0.5333                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 4 │ payment-errors-reference > E-4031 Currency │ payment-errors-reference > E-4040          │ payment-errors-reference > E-4012 Payment  │
+│   │ not supported by card  <- answer           │ Duplicate payment attempt blocked          │ method rejected                            │
+│   │ 0.3929                                     │ 5.8172                                     │ 0.4103                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 5 │ payment-errors-reference > Intro           │ troubleshooting-and-error-codes > Quick    │ troubleshooting-and-error-codes > E-1105   │
+│   │ 0.3578                                     │ reference of error codes                   │ "Report render failed"                     │
+│   │                                            │ 5.7681                                     │ 0.3929                                     │
+└───┴────────────────────────────────────────────┴────────────────────────────────────────────┴────────────────────────────────────────────┘
+                                  "<- answer": the chunk with the answer from payment-errors-reference.md                                   
+
+                       Paraphrase: "I'm a viewer on my company's workspace. Why is the export button missing for me?"                       
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ dense (cosine)                             ┃ bm25 (BM25 from Qdrant)                    ┃ hybrid (RRF)                               ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ data-privacy-and-gdpr-requests >           │ team-and-roles > Intro  <- answer          │ team-and-roles > Intro  <- answer          │
+│   │ Requesting a data export                   │ 14.1696                                    │ 0.8333                                     │
+│   │ 0.4651                                     │                                            │                                            │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 2 │ team-and-roles > Intro  <- answer          │ team-and-roles > Common questions  <-      │ data-privacy-and-gdpr-requests >           │
+│   │ 0.4562                                     │ answer                                     │ Requesting a data export                   │
+│   │                                            │ 10.6905                                    │ 0.5909                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 3 │ reports-and-exports > The Reports page is  │ team-and-roles > Who can invite and remove │ team-and-roles > Common questions  <-      │
+│   │ blank or Export does nothing               │ people                                     │ answer                                     │
+│   │ 0.4530                                     │ 8.3439                                     │ 0.4762                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 4 │ reports-and-exports > Frequently asked     │ system-requirements-and-browsers > Typical │ team-and-roles > Who can invite and remove │
+│   │ questions                                  │ symptoms of an unsupported setup           │ people                                     │
+│   │ 0.4402                                     │ 8.3358                                     │ 0.4167                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 5 │ team-and-roles > Who can invite and remove │ team-and-roles > Seats and invitation      │ reports-and-exports > The Reports page is  │
+│   │ people                                     │ limits                                     │ blank or Export does nothing               │
+│   │ 0.4354                                     │ 7.8747                                     │ 0.3125                                     │
+└───┴────────────────────────────────────────────┴────────────────────────────────────────────┴────────────────────────────────────────────┘
+                                       "<- answer": the chunk with the answer from team-and-roles.md                                        
+
+                       Russian question: "Ссылка для сброса пароля перестала работать. Сколько она вообще действует?"                       
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ dense (cosine)                                      ┃ bm25 (BM25 from Qdrant) ┃ hybrid (RRF)                                         ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ account-and-login > Forgot password  <- answer      │ — empty —               │ account-and-login > Forgot password  <- answer       │
+│   │ 0.3563                                              │                         │ 0.5000                                               │
+├───┼─────────────────────────────────────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────┤
+│ 2 │ account-and-login > Changing your password          │ — empty —               │ account-and-login > Changing your password           │
+│   │ 0.3192                                              │                         │ 0.3333                                               │
+├───┼─────────────────────────────────────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────┤
+│ 3 │ account-and-login > Sign-in lockout (E-3001)        │ — empty —               │ account-and-login > Sign-in lockout (E-3001)         │
+│   │ 0.3178                                              │                         │ 0.2500                                               │
+├───┼─────────────────────────────────────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────┤
+│ 4 │ account-and-login > Lost phone or lost              │ — empty —               │ account-and-login > Lost phone or lost authenticator │
+│   │ authenticator access                                │                         │ access                                               │
+│   │ 0.2842                                              │                         │ 0.2000                                               │
+├───┼─────────────────────────────────────────────────────┼─────────────────────────┼──────────────────────────────────────────────────────┤
+│ 5 │ account-and-login > Two-factor authentication       │ — empty —               │ account-and-login > Two-factor authentication        │
+│   │ 0.2660                                              │                         │ 0.1667                                               │
+└───┴─────────────────────────────────────────────────────┴─────────────────────────┴──────────────────────────────────────────────────────┘
+                                      "<- answer": the chunk with the answer from account-and-login.md                                      
+
+                                               Trap: "How do I connect Lumen to Salesforce?"                                                
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ # ┃ dense (cosine)                             ┃ bm25 (BM25 from Qdrant)                    ┃ hybrid (RRF)                               ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 1 │ onboarding-getting-started > Step 4:       │ integrations-and-api > Intro               │ onboarding-getting-started > Step 4:       │
+│   │ Connect your store (optional)              │ 4.6334                                     │ Connect your store (optional)              │
+│   │ 0.5783                                     │                                            │ 0.8333                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 2 │ onboarding-getting-started > Step 1:       │ onboarding-getting-started > Step 4:       │ integrations-and-api > Intro               │
+│   │ Create your workspace                      │ Connect your store (optional)              │ 0.7500                                     │
+│   │ 0.5560                                     │ 4.5154                                     │                                            │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 3 │ integrations-and-api > Intro               │ notifications-and-alerts > Slack           │ notifications-and-alerts > Slack           │
+│   │ 0.5472                                     │ notifications                              │ notifications                              │
+│   │                                            │ 4.3664                                     │ 0.4500                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 4 │ notifications-and-alerts > Slack           │ mobile-app-guide > Offline mode            │ onboarding-getting-started > Step 1:       │
+│   │ notifications                              │ 4.1315                                     │ Create your workspace                      │
+│   │ 0.5387                                     │                                            │ 0.4167                                     │
+├───┼────────────────────────────────────────────┼────────────────────────────────────────────┼────────────────────────────────────────────┤
+│ 5 │ onboarding-getting-started > Intro         │ security-and-compliance > Intro            │ onboarding-getting-started > Intro         │
+│   │ 0.5148                                     │ 3.9533                                     │ 0.2778                                     │
+└───┴────────────────────────────────────────────┴────────────────────────────────────────────┴────────────────────────────────────────────┘
+                                   there is no answer in the corpus: Salesforce is not mentioned anywhere                                   
+
+         Summary: rank of the chunk with the answer (top-5) and the score of the first result          
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━┓
+┃ question         ┃ dense: rank ┃ bm25: rank ┃ hybrid: rank ┃ dense top-1 score ┃ hybrid top-1 score ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━┩
+│ Error code       │           4 │          2 │            3 │            0.4108 │             0.6667 │
+│ Paraphrase       │           2 │          1 │            1 │            0.4651 │             0.8333 │
+│ Russian question │           1 │       none │            1 │            0.3563 │             0.5000 │
+│ Trap             │           — │          — │            — │            0.5783 │             0.8333 │
+└──────────────────┴─────────────┴────────────┴──────────────┴───────────────────┴────────────────────┘
+Trap: the database still returned 5 chunks. The dense top-1 of the trap is 0.5783 — higher than that of the three questions above (maximum 0.4651).
+The RRF score depends only on ranks, not on meaning. A score threshold is not a refusal: the agent must refuse via its prompt, or a separate
+check must.
+
+                  RRF by hand for "What does E-4031 mean?": score = sum of 1/(k + rank), rank from 0, k = 2                   
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ chunk                                                            ┃ rank in dense ┃ rank in bm25 ┃ our calculation ┃ Qdrant ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ payment-errors-reference > Intro                                 │             4 │            0 │          0.6667 │ 0.6667 │
+│ troubleshooting-and-error-codes > Quick reference of error codes │             0 │            4 │          0.6667 │ 0.6667 │
+│ payment-errors-reference > E-4031 Currency not supported by card │             3 │            1 │          0.5333 │ 0.5333 │
+│ payment-errors-reference > E-4012 Payment method rejected        │             1 │           11 │          0.4103 │ 0.4103 │
+│ troubleshooting-and-error-codes > E-1105 "Report render failed"  │             2 │            5 │          0.3929 │ 0.3929 │
+└──────────────────────────────────────────────────────────────────┴───────────────┴──────────────┴─────────────────┴────────┘
+Matches. In Qdrant 1.19 k can be set explicitly: "query": {"rrf": {"k": 60}} (then top-1 gives 1/60 instead of 1/2), branch weights: {"rrf":
+{"weights": [3.0, 1.0]}}.
+embeddings: from cache 4, API requests 0 (0 texts)
+.venv/bin/python step7_reingest.py
+───────────────────────────────── Step 7. The document changed: how to re-ingest without piling up garbage ─────────────────────────────────
+We change account-and-login.md: the reset link now lives 30 minutes, the last section (email change) is removed. The shared corpus on disk 
+is not touched, the new version is built in memory.
+
+Collection check (lumen_demo): text-embedding-3-small, 1536 dims, the same model as in the code.
+
+Old version: 7 chunks, new: 6 chunks. embeddings: from cache 13, API requests 0 (0 texts)
+
+                      What changed in account-and-login.md: chunk by chunk, old version → new version                       
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ chunk = id             ┃ section                                 ┃ old → new                                             ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ account-and-login.md#0 │ Intro                                   │ same text                                             │
+│ account-and-login.md#1 │ Changing your password                  │ same text                                             │
+│ account-and-login.md#2 │ Forgot password                         │ changed: reset link 60 → 30 minutes                   │
+│ account-and-login.md#3 │ Sign-in lockout (E-3001)                │ same text                                             │
+│ account-and-login.md#4 │ Two-factor authentication               │ same text                                             │
+│ account-and-login.md#5 │ Lost phone or lost authenticator access │ same text                                             │
+│ account-and-login.md#6 │ Changing the account email address      │ removed: no chunk with this number in the new version │
+└────────────────────────┴─────────────────────────────────────────┴───────────────────────────────────────────────────────┘
+  The id is uuid5 of “file#number”, so a chunk keeps its id when its number stays the same. An upsert of the new version overwrites #0–#5; 
+#6 has no new chunk to overwrite it, so only a delete removes it.
+
+7.1 Initial state (after step 5)
+  points in the collection: 147, of which from account-and-login.md: 7
+  search says the reset link is valid for: 60 min · removed section in the top 3 for the email question: yes
+
+7.2 Repeated upsert of the same document with the same ids (uuid5 of source#index)
+  points in the collection: 147, of which from account-and-login.md: 7
+  search says the reset link is valid for: 60 min · removed section in the top 3 for the email question: yes
+
+7.3 And if the ids were random (uuid4 on every run)
+  points in the collection: 154, of which from account-and-login.md: 14
+  search says the reset link is valid for: 60 min · removed section in the top 3 for the email question: yes
+
+  top-3 for "How long is the password reset link valid?": Forgot password (0.5173) | Forgot password (0.5173) | Sign-in lockout (E-3001) 
+(0.4206)
+  The same chunk twice: fewer distinct facts are left in the top-5 for the model.
+  Fixing it: delete everything by the source filter and load again.
+  POST /collections/lumen_demo/points/delete?wait=true  {"filter": {"must": [{"key": "metadata.source", "match": {"value": 
+"account-and-login.md"}}]}}
+  points in the collection: 147, of which from account-and-login.md: 7
+  search says the reset link is valid for: 60 min · removed section in the top 3 for the email question: yes
+
+7.4 New version of the document, upsert WITHOUT deletion (6 chunks on top of 7)
+  points in the collection: 147, of which from account-and-login.md: 7
+  search says the reset link is valid for: 30 min · removed section in the top 3 for the email question: yes
+
+  orphan d16eb53d-b110-52cb-a06c-af656147aaa6: "Account and Login Guide > Changing the account email address" — this section no longer 
+exists in the document
+  top-3 for "How do I change the email address of my account?": Changing the account email address, Changing your password, Forgot password
+  The number of points did not change, so the problem is invisible by count. The agent will quote the deleted section.
+
+7.5 The right way: delete by source, then upsert the new version
+  POST /collections/lumen_demo/points/delete?wait=true  {"filter": {"must": [{"key": "metadata.source", "match": {"value": 
+"account-and-login.md"}}]}}
+  points in the collection: 146, of which from account-and-login.md: 6
+  search says the reset link is valid for: 30 min · removed section in the top 3 for the email question: no
+
+  top-3 for "How do I change the email address of my account?": Changing your password, Forgot password, Changing roles
+
+7.6 Restoring the original version so that step 6 matches the RUNBOOK again
+  POST /collections/lumen_demo/points/delete?wait=true  {"filter": {"must": [{"key": "metadata.source", "match": {"value": 
+"account-and-login.md"}}]}}
+  points in the collection: 147, of which from account-and-login.md: 7
+  search says the reset link is valid for: 60 min · removed section in the top 3 for the email question: yes
+
+                                        Summary: what each way of reloading leaves in the collection                                        
+┏━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ step                     ┃ document ┃ ids    ┃ delete first ┃ points ┃ diff ┃ reset link ┃ email section found ┃ what happened           ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 7.1 initial              │ old      │ stable │ –            │    147 │   +0 │ 60 min     │ yes                 │ after step 5            │
+│ 7.2 same ids again       │ old      │ stable │ no           │    147 │   +0 │ 60 min     │ yes                 │ idempotent: overwritten │
+│ 7.3 random ids           │ old      │ random │ no           │    154 │   +7 │ 60 min     │ yes                 │ +7 duplicates           │
+│ 7.3 fix: delete + upsert │ old      │ stable │ yes          │    147 │   +0 │ 60 min     │ yes                 │ duplicates gone         │
+│ 7.4 new, no delete       │ new      │ stable │ no           │    147 │   +0 │ 30 min     │ yes                 │ orphan inside           │
+│ 7.5 new, delete + upsert │ new      │ stable │ yes          │    146 │   -1 │ 30 min     │ no                  │ equals the new document │
+│ 7.6 rollback             │ old      │ stable │ yes          │    147 │   +0 │ 60 min     │ yes                 │ as after step 5         │
+└──────────────────────────┴──────────┴────────┴──────────────┴────────┴──────┴────────────┴─────────────────────┴─────────────────────────┘
+Rule for the homework: id = uuid5(source#index) makes upsert idempotent, and delete by source before upsert removes the leftovers when a 
+document got shorter.
+{"filter": {"must": [{"key": "metadata.source", "match": {"value": "account-and-login.md"}}]}}
+.venv/bin/python step8_eval.py
+──────────────────────────────────── Step 8. Measuring search: golden set, recall@5, recall@10, NDCG@5 ─────────────────────────────────────
+The homework's numbers, computed with our own code: each golden question goes through dense, bm25 and hybrid, the first 10 results are kept,
+then it is arithmetic over the saved sources.
+
+Collection check (lumen_demo): text-embedding-3-small, 1536 dims, the same model as in the code.
+
+                      The golden set (../_shared/golden.json, shared with Lab 03 and Lab 05)                       
+┏━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ kind  ┃ questions ┃ what is marked                       ┃ counts in                                            ┃
+┡━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ core  │        10 │ one document with the answer         │ recall@5 (homework threshold 0.8), recall@10, NDCG@5 │
+│ multi │         5 │ two documents, the answer needs both │ the same metrics, block A                            │
+│ trap  │         2 │ nothing: the corpus has no answer    │ no metric here; the agent must refuse (Lab 05)       │
+└───────┴───────────┴──────────────────────────────────────┴──────────────────────────────────────────────────────┘
+Example: q01 "I clicked 'forgot password' but the reset email never showed up. What should I check?" → account-and-login.md
+
+8.1 One run: 15 questions × 3 searches, the first 10 results kept. The hybrid request for q01  POST /collections/lumen_demo/points/query
+{
+  "prefetch": [
+    {
+      "query": [-0.0064, 0.0069, -0.0275, 0.0032, "... 1532 more"],
+      "limit": 20
+    },
+    {
+      "query": {
+        "text": "I clicked 'forgot password' but the reset email never showed up. What should I check?",
+        "model": "Qdrant/bm25"
+      },
+      "using": "bm25",
+      "limit": 20
+    }
+  ],
+  "query": {
+    "fusion": "rrf"
+  },
+  "limit": 10,
+  "with_payload": true
+}
+
+                             Where the answer document is: position in the first 10 results (from 1)                             
+┏━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━┳━━━━━━┳━━━━━━━━┓
+┃ id  ┃ question                                                   ┃ answer document(s)                 ┃ dense ┃ bm25 ┃ hybrid ┃
+┡━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━╇━━━━━━╇━━━━━━━━┩
+│ q01 │ I clicked 'forgot password' but the reset email never      │ account-and-login                  │     1 │    1 │      1 │
+│     │ showed up. What should I check?                            │                                    │       │      │        │
+│ q02 │ How long does the invitation link stay valid when I add a  │ team-and-roles                     │     1 │    1 │      1 │
+│     │ new teammate?                                              │                                    │       │      │        │
+│ q03 │ Paying by card fails with error E-4012. What does it mean  │ payment-errors-reference           │     1 │    1 │      1 │
+│     │ and what can I do?                                         │                                    │       │      │        │
+│ q04 │ I press Export on my monthly report and nothing gets       │ reports-and-exports                │     1 │    1 │      1 │
+│     │ downloaded. Any idea why?                                  │                                    │       │      │        │
+│ q05 │ Alerts about new orders reach my phone 15 to 20 minutes    │ notifications-and-alerts           │     1 │    1 │      1 │
+│     │ late. How do I fix that?                                   │                                    │       │      │        │
+│ q06 │ How many API calls per minute am I allowed on the Team     │ integrations-and-api               │     1 │    1 │      1 │
+│     │ plan?                                                      │                                    │       │      │        │
+│ q07 │ I bought a yearly plan two months ago and changed my mind. │ refund-and-cancellation-policy     │     1 │    3 │      1 │
+│     │ Can I still get my money back?                             │                                    │       │      │        │
+│ q08 │ Which web browsers can I use with Lumen?                   │ system-requirements-and-browsers   │     1 │    1 │      1 │
+│ q09 │ After I delete my workspace, how long is my data still     │ data-privacy-and-gdpr-requests     │     1 │    1 │      1 │
+│     │ kept anywhere?                                             │                                    │       │      │        │
+│ q10 │ The app crashes whenever I open a report and the log says  │ release-notes-and-known-issues     │     1 │    1 │      1 │
+│     │ 'unhandled exception on open'. What is going on?           │                                    │       │      │        │
+│ m01 │ I'm on the Starter plan and need to export about 50,000    │ reports-and-exports                │  1, 3 │ 1, 2 │   1, 2 │
+│     │ rows. Is that possible, and which plan would I need?       │ plans-and-pricing                  │       │      │        │
+│ m02 │ I want to cancel my annual subscription and take all my    │ refund-and-cancellation-policy     │  1, 5 │ 1, 5 │   1, 4 │
+│     │ data with me. What do I do and in which order?             │ data-privacy-and-gdpr-requests     │       │      │        │
+│ m03 │ Nobody in our company can sign in and every page shows a   │ service-status-and-incidents       │  3, 5 │ 8, — │   4, — │
+│     │ 503. How serious is this, and how fast will you respond on │ support-hours-and-sla              │       │      │        │
+│     │ the Business plan?                                         │                                    │       │      │        │
+│ m04 │ Our contract promises a 10% discount but my invoice does   │ enterprise-contracts-and-discounts │  1, 6 │ 1, 3 │   1, 4 │
+│     │ not show it. Can support fix that, and where do I find the │ billing-invoices-and-payments      │       │      │        │
+│     │ invoice?                                                   │                                    │       │      │        │
+│ m05 │ All 15 seats on our Team workspace are taken. What would   │ plans-and-pricing                  │  2, 1 │ 1, 2 │   1, 2 │
+│     │ five more people cost, and who is allowed to invite them?  │ team-and-roles                     │       │      │        │
+└─────┴────────────────────────────────────────────────────────────┴────────────────────────────────────┴───────┴──────┴────────┘
+                  green: in the top 5 · yellow: 6-10 · red '—': not in the top 10; two numbers = two documents                   
+Questions with every answer document in the top 5: dense 14 of 15, bm25 14 of 15, hybrid 14 of 15
+
+      Retrieval metrics (higher is better, 1.0 is the maximum)      
+┏━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━┓
+┃ set              ┃ search ┃        recall@5 ┃ recall@10 ┃ NDCG@5 ┃
+┡━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━┩
+│ core (10)        │ dense  │ 1.00 (10 of 10) │      1.00 │  1.000 │
+│ core (10)        │ bm25   │ 1.00 (10 of 10) │      1.00 │  0.950 │
+│ core (10)        │ hybrid │ 1.00 (10 of 10) │      1.00 │  1.000 │
+├──────────────────┼────────┼─────────────────┼───────────┼────────┤
+│ two-document (5) │ dense  │   0.80 (4 of 5) │      1.00 │  0.785 │
+│ two-document (5) │ bm25   │   0.80 (4 of 5) │      0.80 │  0.754 │
+│ two-document (5) │ hybrid │   0.80 (4 of 5) │      0.80 │  0.804 │
+└──────────────────┴────────┴─────────────────┴───────────┴────────┘
+recall@5 = share of questions found in the top 5; NDCG@5 also rewards the place.
+
+Worst question m03 (lowest hybrid NDCG@5): "Nobody in our company can sign in and every page shows a 503. How serious is this, and how fast 
+will you respond on the Business plan?"
+┏━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┓
+┃ # ┃ hybrid top 5: chunk                                          ┃    RRF ┃
+┡━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━┩
+│ 1 │ troubleshooting-and-error-codes > HTTP 500 and HTTP 503      │ 0.6667 │
+│ 2 │ security-and-compliance > Passwords and authentication       │ 0.5714 │
+│ 3 │ system-requirements-and-browsers > Required browser settings │ 0.3958 │
+│ 4 │ service-status-and-incidents > Severity levels               │ 0.3611 │
+│ 5 │ account-and-login > Sign-in lockout (E-3001)                 │ 0.3333 │
+└───┴──────────────────────────────────────────────────────────────┴────────┘
+      needs: service-status-and-incidents.md, support-hours-and-sla.md       
+positions of the answer document(s): dense 3, 5; bm25 8, —; hybrid 4, —
+
+The shape of the metrics table the homework asks for in report.md (filled with this demo's numbers; yours come from your corpus and your 
+golden set)
+| Metric | Value |
+|---|---|
+| recall@5 | 1.00 (10 of 10) |
+| recall@10 | 1.00 (block A) |
+| NDCG@5 | 1.00 (block A) |
+| recall@5, two-document questions | 0.80 (4 of 5, block A) |
+
+Takeaway: hybrid recall@5 on the core questions is 1.00, the homework threshold of 0.8 is met. Ten questions are a first measurement: one 
+question moves recall by 0.1.
+embeddings: from cache 15, API requests 0 (0 texts)
+.venv/bin/python step9_experiment.py
+────────────────────────────────────────── Step 9. Block A: one change, metrics before and after ───────────────────────────────────────────
+The same golden set and the same metric code as step 8. Each row changes one thing; the deliverable is the difference between rows, not the 
+absolute number.
+
+Collection check (lumen_demo): text-embedding-3-small, 1536 dims, the same model as in the code.
+
+9.1 RRF branch weights (dense : bm25), collection "lumen_demo" from step 5, query {"rrf": {"weights": [dense, bm25]}}
+
+                 RRF weights: hybrid metrics on the golden set (in brackets: the change against 1:1)                  
+┏━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ weights      ┃ what changes              ┃ core r@5 ┃    core NDCG@5 ┃ multi r@5 ┃     multi r@10 ┃   multi NDCG@5 ┃
+┡━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ 1:1 (before) │ default {"fusion": "rrf"} │    1.000 │          1.000 │     0.800 │          0.800 │          0.804 │
+│ 3:1          │ trust dense more          │    1.000 │          1.000 │     0.800 │ 1.000 (+0.200) │ 0.807 (+0.003) │
+│ 1:3          │ trust bm25 more           │    1.000 │ 0.963 (-0.037) │     0.800 │          0.800 │ 0.798 (-0.005) │
+└──────────────┴───────────────────────────┴──────────┴────────────────┴───────────┴────────────────┴────────────────┘
+Only the fusion part of the query changes; the collection and the questions stay the same.
+
+9.2 Chunking: the same corpus cut three other ways, each loaded into the temporary collection "lumen_demo_exp" and measured with the default
+hybrid (RRF, weights 1:1)
+
+                                        The chunkings compared                                        
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ chunking          ┃ chunks ┃ avg tokens ┃ max tokens ┃ chunks with overlap ┃ overlap share in them ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━┩
+│ 400 (before)      │    147 │        341 │        496 │                   2 │                    3% │
+│ 300               │    186 │        272 │        367 │                  13 │                    7% │
+│ 300 + overlap 12% │    186 │        272 │        367 │                  15 │                   11% │
+│ 500               │    118 │        423 │        620 │                   0 │                     — │
+└───────────────────┴────────┴────────────┴────────────┴─────────────────────┴───────────────────────┘
+Smaller target → more chunks and more splits, so the overlap fires more often.
+
+                       Chunking: hybrid metrics on the golden set (in brackets: the change against 400)                        
+┏━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━┓
+┃ chunking          ┃ what changes                  ┃ core r@5 ┃    core NDCG@5 ┃ multi r@5 ┃     multi r@10 ┃   multi NDCG@5 ┃
+┡━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━┩
+│ 400 (before)      │ the step 4 chunking           │    1.000 │          1.000 │     0.800 │          0.800 │          0.804 │
+│ 300               │ smaller chunks                │    1.000 │ 0.963 (-0.037) │     0.800 │          0.800 │ 0.807 (+0.003) │
+│ 300 + overlap 12% │ smaller chunks, repeated tail │    1.000 │ 0.963 (-0.037) │     0.800 │          0.800 │ 0.791 (-0.013) │
+│ 500               │ bigger chunks                 │    1.000 │ 0.963 (-0.037) │     0.800 │ 1.000 (+0.200) │ 0.793 (-0.011) │
+└───────────────────┴───────────────────────────────┴──────────┴────────────────┴───────────┴────────────────┴────────────────┘
+The temporary collection "lumen_demo_exp" is deleted; "lumen_demo" was not changed.
+
+The shape of the homework's before/after table (weights 1:1 (before) → 3:1: some metrics up, none down)
+| Metric | Before | After |
+|---|---|---|
+| core r@5 | 1.000 | 1.000 |
+| core NDCG@5 | 1.000 | 1.000 |
+| multi r@5 | 0.800 | 0.800 |
+| multi r@10 | 0.800 | 1.000 |
+| multi NDCG@5 | 0.804 | 0.807 |
+
+Takeaway: change one thing, measure on the same set, report the difference and how big the set is.
+embeddings: from cache 505, API requests 0 (0 texts)
+.venv/bin/python step10_answers.py
+────────────────────────────────── Step 10. The answer: from found chunks to a cited answer or a refusal ───────────────────────────────────
+Hybrid top 5 from "lumen_demo" → chat model gpt-4o-mini (temperature 0) with a 'facts only, cite or refuse' prompt. The same check as 
+homework part 3, on four questions.
+
+Collection check (lumen_demo): text-embedding-3-small, 1536 dims, the same model as in the code.
+
+10.1 The prompt  POST https://api.openai.com/v1/chat/completions
+╭─ system message ───────────────────────────────────────────────────────────────────────────────────────────╮
+│ You answer customers of Lumen for the first-line support team. Use only the facts in the numbered          │
+│ passages. If the passages answer the question, answer briefly and end with one line 'Sources: <file names  │
+│ you used>'. If they do not contain the answer, reply exactly: 'Not covered by the knowledge base.' Do not  │
+│ refuse when the facts are there, even if you must compare a number from the question with a limit in the   │
+│ passages.                                                                                                  │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+{
+  "model": "gpt-4o-mini",
+  "temperature": 0,
+  "messages": [
+    {
+      "role": "system",
+      "content": "You answer customers of Lumen for the first-line support team. Use only the facts in the n... (+334 chars)"
+    },
+    {
+      "role": "user",
+      "content": "Passages:\n\n[1] (source: <file>.md)\n<chunk text>\n...\n\nQuestion: <question>"
+    }
+  ]
+}
+
+10.2 q02 (core): How long does the invitation link stay valid when I add a new teammate?
+ #  hybrid top 5 (what the model receives)                 
+ 1  team-and-roles > Inviting a new user                   
+ 2  team-and-roles > Common questions                      
+ 3  team-and-roles > Seats and invitation limits           
+ 4  account-and-login > Changing the account email address 
+ 5  team-and-roles > Who can invite and remove people      
+╭─ the model's answer ───────────────────────────────────────────────────────────────────────────────────────╮
+│ The invitation link is valid for **7 days**.                                                               │
+│                                                                                                            │
+│ Sources: team-and-roles.md                                                                                 │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+needed: team-and-roles · search found 1 of 1 · cited: team-and-roles · refused: no → answered with sources
+
+10.3 t01 (trap): How do I connect Lumen to Salesforce?
+ #  hybrid top 5 (what the model receives)                             
+ 1  onboarding-getting-started > Step 4: Connect your store (optional) 
+ 2  integrations-and-api > Intro                                       
+ 3  notifications-and-alerts > Slack notifications                     
+ 4  onboarding-getting-started > Step 1: Create your workspace         
+ 5  onboarding-getting-started > Intro                                 
+╭─ the model's answer ───────────────────────────────────────────────────────────────────────────────────────╮
+│ Not covered by the knowledge base.                                                                         │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+needed: nothing (trap) · search found 0 of 0 · cited: — · refused: yes → correct refusal
+
+10.4 m01 (multi): I'm on the Starter plan and need to export about 50,000 rows. Is that possible, and which plan would I need?
+ #  hybrid top 5 (what the model receives)                
+ 1  reports-and-exports > Export formats and row limits   
+ 2  plans-and-pricing > Tracked orders and saved reports  
+ 3  plans-and-pricing > Plan comparison table             
+ 4  reports-and-exports > Error E-2210 "Export too large" 
+ 5  plans-and-pricing > Seats and extra seats             
+╭─ the model's answer ───────────────────────────────────────────────────────────────────────────────────────╮
+│ No, it is not possible to export 50,000 rows on the Starter plan, as it has a maximum limit of 10,000 rows │
+│ per export. You would need to upgrade to the Team plan, which allows for up to 100,000 rows per export.    │
+│                                                                                                            │
+│ Sources: reports-and-exports.md, plans-and-pricing.md                                                      │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+needed: reports-and-exports, plans-and-pricing · search found 2 of 2 · cited: reports-and-exports, plans-and-pricing · refused: no → 
+answered with sources
+
+10.5 m03 (multi): Nobody in our company can sign in and every page shows a 503. How serious is this, and how fast will you respond on the 
+Business plan?
+ #  hybrid top 5 (what the model receives)                       
+ 1  troubleshooting-and-error-codes > HTTP 500 and HTTP 503      
+ 2  security-and-compliance > Passwords and authentication       
+ 3  system-requirements-and-browsers > Required browser settings 
+ 4  service-status-and-incidents > Severity levels               
+ 5  account-and-login > Sign-in lockout (E-3001)                 
+╭─ the model's answer ───────────────────────────────────────────────────────────────────────────────────────╮
+│ This situation is classified as a SEV1 incident since the entire workspace or all users are blocked, which │
+│ means that sign-in is impossible for everyone. The response will be prioritized, and customers will be     │
+│ updated quickly.                                                                                           │
+│                                                                                                            │
+│ Sources: [4]                                                                                               │
+╰────────────────────────────────────────────────────────────────────────────────────────────────────────────╯
+needed: service-status-and-incidents, support-hours-and-sla · search found 1 of 2 · cited: — · refused: no → partial: the search found 1 of 
+2 documents
+
+                        The run table of homework part 3, on four questions                        
+┏━━━━━┳━━━━━━━┳━━━━━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ id  ┃ kind  ┃ search found ┃ model cited ┃ refused ┃ verdict                                    ┃
+┡━━━━━╇━━━━━━━╇━━━━━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ q02 │ core  │       1 of 1 │      1 of 1 │ no      │ answered with sources                      │
+│ t01 │ trap  │            — │           — │ yes     │ correct refusal                            │
+│ m01 │ multi │       2 of 2 │      2 of 2 │ no      │ answered with sources                      │
+│ m03 │ multi │       1 of 2 │      0 of 2 │ no      │ partial: the search found 1 of 2 documents │
+└─────┴───────┴──────────────┴─────────────┴─────────┴────────────────────────────────────────────┘
+2 answered with sources, 1 correct refusal, 1 with a problem.
+
+         Worst of the four: m03 (partial: the search found 1 of 2 documents). Where did it break?         
+┏━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃ layer          ┃ question to ask                               ┃ here                                  ┃
+┡━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ search         │ are all needed documents in the top 5?        │ no, missing: support-hours-and-sla.md │
+│ chunk          │ does the returned chunk hold the fact, whole? │ cannot hold what was not returned     │
+│ prompt / model │ did the model use, cite or refuse correctly?  │ follows from the search               │
+└────────────────┴───────────────────────────────────────────────┴───────────────────────────────────────┘
+Takeaway: the model only knows what the search handed it; a refusal comes from the prompt, and a missing document cannot be fixed by the 
+prompt.
+embeddings: from cache 4, API requests 0 (0 texts) · chat: from cache 4, API requests 0
+.venv/bin/python step11_models.py
+───────────────────────────────────────────────────── Step 11. Another embedding model ─────────────────────────────────────────────────────
+The default everywhere is text-embedding-3-small (1536 numbers). Here the same corpus goes through two local models the homework allows, 
+each into its own collection.
+
+Collection check (lumen_demo): text-embedding-3-small, 1536 dims, the same model as in the code.
+
+11.1 One question, three models: "How long is the password reset link valid?"
+                                    What each model returns, and how close the question is to two chunks                                    
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━━━━━━━━━━━━━━━━━━━━━┓
+┃                        ┃                         ┃        ┃                         ┃ cos → account-and-login ┃  cos → plans-and-pricing ┃
+┃ model                  ┃ runs                    ┃ length ┃ first 4 numbers         ┃       > Forgot password ┃                  > Intro ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━━━━━━━━━━━━━━━━━━━━━┩
+│ text-embedding-3-small │ OpenAI API              │   1536 │ -0.005 -0.018 -0.020    │                   0.517 │                    0.158 │
+│                        │                         │        │ +0.006                  │                         │                          │
+│ bge-m3                 │ Ollama, a local server  │   1024 │ -0.041 +0.006 -0.040    │                   0.718 │                    0.378 │
+│                        │                         │        │ -0.003                  │                         │                          │
+│ BAAI/bge-small-en-v1.5 │ FastEmbed, ONNX inside  │    384 │ -0.077 -0.099 -0.002    │                   0.750 │                    0.452 │
+│                        │ this process            │        │ -0.037                  │                         │                          │
+└────────────────────────┴─────────────────────────┴────────┴─────────────────────────┴─────────────────────────┴──────────────────────────┘
+Different lengths, different numbers, different cosine scales; the order (answer chunk closer) is what carries over.
+
+11.2 Wrong model: the question embedded by bge-m3 sent to "lumen_demo" (built by text-embedding-3-small)  POST 
+/collections/lumen_demo/points/query
+{
+  "query": [-0.0412, 0.0063, -0.0396, -0.0028, "... 1020 more"],
+  "limit": 5,
+  "with_payload": true
+}
+response 400 Wrong input: Vector dimension error: expected dim: 1536, got 1024
+
+11.3 One collection per model (schema of step 5, size and metadata from the model)
+Collection check (lumen_demo_bge-m3): bge-m3, 1024 dims, the same model as in the code.
+
+Collection check (lumen_demo_bge-small-en-v1-5): BAAI/bge-small-en-v1.5, 384 dims, the same model as in the code.
+
+
+                   The models on the golden set (dense = the model alone, hybrid = with bm25 and RRF)                    
+┏━━━━━━━━━━━━━━━━━━━━━━━━┳━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━┳━━━━━━━━━━┳━━━━━━━━━━━━━┳━━━━━━━━━━━┳━━━━━━━━━━━━┳━━━━━━━━━━━━━━┓
+┃ model                  ┃ dims ┃ 147 vectors ┃ search ┃ core r@5 ┃ core NDCG@5 ┃ multi r@5 ┃ multi r@10 ┃ multi NDCG@5 ┃
+┡━━━━━━━━━━━━━━━━━━━━━━━━╇━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━╇━━━━━━━━━━╇━━━━━━━━━━━━━╇━━━━━━━━━━━╇━━━━━━━━━━━━╇━━━━━━━━━━━━━━┩
+│ text-embedding-3-small │ 1536 │      882 KB │ dense  │    1.000 │       1.000 │     0.800 │      1.000 │        0.785 │
+│                        │      │             │ hybrid │    1.000 │       1.000 │     0.800 │      0.800 │        0.804 │
+├────────────────────────┼──────┼─────────────┼────────┼──────────┼─────────────┼───────────┼────────────┼──────────────┤
+│ bge-m3                 │ 1024 │      588 KB │ dense  │    1.000 │       1.000 │     0.800 │      0.800 │        0.893 │
+│                        │      │             │ hybrid │    1.000 │       1.000 │     0.800 │      0.800 │        0.874 │
+├────────────────────────┼──────┼─────────────┼────────┼──────────┼─────────────┼───────────┼────────────┼──────────────┤
+│ BAAI/bge-small-en-v1.5 │  384 │      220 KB │ dense  │    1.000 │       1.000 │     0.600 │      0.800 │        0.752 │
+│                        │      │             │ hybrid │    1.000 │       1.000 │     0.800 │      0.800 │        0.751 │
+└────────────────────────┴──────┴─────────────┴────────┴──────────┴─────────────┴───────────┴────────────┴──────────────┘
+Same chunks, same questions, same metric code as step 8; only the embedding model changes.
+
+Takeaway: the embedding model is a choice measured on your golden set, and every collection is bound to the model that built it.
+embeddings: from cache 489, API requests 0 (0 texts)

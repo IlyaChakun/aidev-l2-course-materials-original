@@ -1,0 +1,67 @@
+{
+  "_comment": "Per-tenant variants of the shared Lumen corpus. Each tenant is a company that runs its own help center on our multi-tenant support platform. 'base_docs' are copied from ../_shared/corpus with 'replace' pairs applied in order; every *.md in tenants/<tenant>/ is added as is (tenant-only docs, some restricted to a group).",
+  "acme": {
+    "company": "Acme Corp",
+    "product": "Acme Orders",
+    "base_docs": [
+      "support-hours-and-sla",
+      "refund-and-cancellation-policy",
+      "enterprise-contracts-and-discounts",
+      "plans-and-pricing",
+      "account-and-login",
+      "notifications-and-alerts"
+    ],
+    "replace": [
+      ["Lumen Labs", "Acme Corp"],
+      ["Lumen", "Acme Orders"],
+      ["Monday to Friday, 08:00 to 18:00 UTC", "Monday to Saturday, 07:00 to 19:00 UTC"],
+      ["at 08:00 UTC on Monday", "at 07:00 UTC on Saturday"],
+      ["within 14 days", "within 30 days"],
+      ["after 14 days", "after 30 days"]
+    ]
+  },
+  "globex": {
+    "company": "Globex Inc",
+    "product": "Globex Warehouse",
+    "base_docs": [
+      "support-hours-and-sla",
+      "refund-and-cancellation-policy",
+      "enterprise-contracts-and-discounts",
+      "plans-and-pricing",
+      "account-and-login",
+      "notifications-and-alerts",
+      "integrations-and-api",
+      "reports-and-exports",
+      "troubleshooting-and-error-codes",
+      "mobile-app-guide"
+    ],
+    "replace": [
+      ["Lumen Labs", "Globex Inc"],
+      ["Lumen", "Globex Warehouse"],
+      ["Monday to Friday, 08:00 to 18:00 UTC", "Monday to Friday, 06:00 to 22:00 UTC"],
+      ["at 08:00 UTC on Monday", "at 06:00 UTC on Monday"],
+      ["within 14 days", "within 21 days"],
+      ["after 14 days", "after 21 days"]
+    ]
+  },
+  "initech": {
+    "company": "Initech LLC",
+    "product": "Initech Ledger",
+    "base_docs": [
+      "support-hours-and-sla",
+      "refund-and-cancellation-policy",
+      "enterprise-contracts-and-discounts",
+      "plans-and-pricing",
+      "account-and-login",
+      "notifications-and-alerts"
+    ],
+    "replace": [
+      ["Lumen Labs", "Initech LLC"],
+      ["Lumen", "Initech Ledger"],
+      ["Monday to Friday, 08:00 to 18:00 UTC", "Monday to Friday, 10:00 to 16:00 UTC"],
+      ["at 08:00 UTC on Monday", "at 10:00 UTC on Monday"],
+      ["within 14 days", "within 7 days"],
+      ["after 14 days", "after 7 days"]
+    ]
+  }
+}

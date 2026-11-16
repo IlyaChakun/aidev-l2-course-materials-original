@@ -1,0 +1,215 @@
+{
+  "id": "demo05LumenIngest",
+  "name": "Demo 05 · Lumen ingest",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000001",
+      "name": "Start",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 300]
+    },
+    {
+      "parameters": {
+        "method": "DELETE",
+        "url": "http://qdrant:6333/collections/lumen_kb",
+        "options": {}
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000002",
+      "name": "Reset collection lumen_kb",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [220, 300],
+      "alwaysOutputData": true,
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "operation": "read",
+        "fileSelector": "/data/corpus/*.md",
+        "options": {}
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000003",
+      "name": "Read corpus files",
+      "type": "n8n-nodes-base.readWriteFile",
+      "typeVersion": 1.1,
+      "position": [440, 300],
+      "executeOnce": true
+    },
+    {
+      "parameters": {
+        "operation": "text",
+        "binaryPropertyName": "data",
+        "destinationKey": "data",
+        "options": {}
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000004",
+      "name": "Extract text",
+      "type": "n8n-nodes-base.extractFromFile",
+      "typeVersion": 1.1,
+      "position": [660, 300]
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a1",
+              "name": "source",
+              "value": "={{ $('Read corpus files').item.binary.data.fileName }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "title",
+              "value": "={{ ($json.data.match(/^title:\\s*(.+)$/m) || [])[1] || '' }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "text",
+              "value": "={{ $json.data.replace(/^---[\\s\\S]*?---\\s*/, '') }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000005",
+      "name": "Source, title, text",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [880, 300]
+    },
+    {
+      "parameters": {
+        "mode": "insert",
+        "qdrantCollection": {
+          "__rl": true,
+          "mode": "id",
+          "value": "lumen_kb"
+        },
+        "embeddingBatchSize": 200,
+        "options": {}
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000006",
+      "name": "Qdrant insert lumen_kb",
+      "type": "@n8n/n8n-nodes-langchain.vectorStoreQdrant",
+      "typeVersion": 1.3,
+      "position": [1120, 300],
+      "credentials": {
+        "qdrantApi": {
+          "id": "demo05Qdrant",
+          "name": "Qdrant (demo 05)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "model": "text-embedding-3-small",
+        "options": {}
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000007",
+      "name": "Embeddings OpenAI",
+      "type": "@n8n/n8n-nodes-langchain.embeddingsOpenAi",
+      "typeVersion": 1.2,
+      "position": [1040, 540],
+      "credentials": {
+        "openAiApi": {
+          "id": "demo05OpenAi",
+          "name": "OpenAI (demo 05)"
+        }
+      }
+    },
+    {
+      "parameters": {
+        "dataType": "json",
+        "jsonMode": "expressionData",
+        "jsonData": "={{ $json.text }}",
+        "textSplittingMode": "custom",
+        "options": {
+          "metadata": {
+            "metadataValues": [
+              {
+                "name": "source",
+                "value": "={{ $json.source }}"
+              },
+              {
+                "name": "title",
+                "value": "={{ $json.title }}"
+              }
+            ]
+          }
+        }
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000008",
+      "name": "Default Data Loader",
+      "type": "@n8n/n8n-nodes-langchain.documentDefaultDataLoader",
+      "typeVersion": 1.1,
+      "position": [1240, 540]
+    },
+    {
+      "parameters": {
+        "chunkSize": 1600,
+        "chunkOverlap": 200,
+        "options": {
+          "splitCode": "markdown"
+        }
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000009",
+      "name": "Markdown splitter",
+      "type": "@n8n/n8n-nodes-langchain.textSplitterRecursiveCharacterTextSplitter",
+      "typeVersion": 1,
+      "position": [1320, 760]
+    },
+    {
+      "parameters": {
+        "width": 620,
+        "height": 260,
+        "content": "## Ingestion: corpus -> lumen_kb\n1. Reset drops the collection, so a re-run does not duplicate points.\n2. Read 22 Markdown files from /data/corpus (read-only mount of _shared/corpus).\n3. Set: source = file name, title = front matter, text = body.\n4. Loader + recursive markdown splitter: 1600 chars (about 400 tokens), overlap 200.\n5. text-embedding-3-small -> Qdrant. Payload keys: content + metadata (node defaults), unnamed dense vector."
+      },
+      "id": "0b1f5c1e-5a01-4c11-9a01-000000000010",
+      "name": "Note",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [0, 0]
+    }
+  ],
+  "connections": {
+    "Start": {
+      "main": [[{ "node": "Reset collection lumen_kb", "type": "main", "index": 0 }]]
+    },
+    "Reset collection lumen_kb": {
+      "main": [[{ "node": "Read corpus files", "type": "main", "index": 0 }]]
+    },
+    "Read corpus files": {
+      "main": [[{ "node": "Extract text", "type": "main", "index": 0 }]]
+    },
+    "Extract text": {
+      "main": [[{ "node": "Source, title, text", "type": "main", "index": 0 }]]
+    },
+    "Source, title, text": {
+      "main": [[{ "node": "Qdrant insert lumen_kb", "type": "main", "index": 0 }]]
+    },
+    "Embeddings OpenAI": {
+      "ai_embedding": [[{ "node": "Qdrant insert lumen_kb", "type": "ai_embedding", "index": 0 }]]
+    },
+    "Default Data Loader": {
+      "ai_document": [[{ "node": "Qdrant insert lumen_kb", "type": "ai_document", "index": 0 }]]
+    },
+    "Markdown splitter": {
+      "ai_textSplitter": [[{ "node": "Default Data Loader", "type": "ai_textSplitter", "index": 0 }]]
+    }
+  },
+  "pinData": {},
+  "active": false,
+  "settings": {
+    "executionOrder": "v1",
+    "saveManualExecutions": true,
+    "saveDataErrorExecution": "all",
+    "saveDataSuccessExecution": "all"
+  },
+  "meta": { "templateCredsSetupCompleted": true },
+  "tags": []
+}

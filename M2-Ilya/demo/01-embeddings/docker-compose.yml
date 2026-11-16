@@ -1,0 +1,19 @@
+name: m2-demo-embeddings
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    ports:
+      - "127.0.0.1:6341:6333"   # REST API + dashboard
+      - "127.0.0.1:6342:6334"   # gRPC (not used by the scripts, exposed for completeness)
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    healthcheck:
+      # The image has no curl/wget; bash /dev/tcp is enough to see the port is open.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q \"200 OK\" <&3'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+volumes:
+  qdrant_storage:

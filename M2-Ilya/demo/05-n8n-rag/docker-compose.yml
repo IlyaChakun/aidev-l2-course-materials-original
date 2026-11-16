@@ -1,0 +1,51 @@
+# Demo 05: RAG end-to-end in n8n without code (n8n + Qdrant).
+# Ports are loopback-only and do not clash with smart-support (5678, 6333) or other demos.
+name: m2-demo-n8n-rag
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    container_name: m2-demo-n8n-rag-qdrant
+    restart: unless-stopped
+    ports:
+      - "127.0.0.1:${DEMO05_QDRANT_PORT:-6381}:6333"
+      - "127.0.0.1:${DEMO05_QDRANT_GRPC_PORT:-6382}:6334"
+    volumes:
+      - qdrant_data:/qdrant/storage
+
+  n8n:
+    # Same 2.3x line as the homework reference repo (smart-support).
+    image: n8nio/n8n:2.39.10
+    container_name: m2-demo-n8n-rag-n8n
+    restart: unless-stopped
+    depends_on:
+      - qdrant
+    ports:
+      - "127.0.0.1:${DEMO05_N8N_PORT:-5681}:5678"
+    environment:
+      - N8N_HOST=localhost
+      - N8N_PORT=5678
+      - N8N_PROTOCOL=http
+      - N8N_EDITOR_BASE_URL=http://localhost:${DEMO05_N8N_PORT:-5681}
+      - WEBHOOK_URL=http://localhost:${DEMO05_N8N_PORT:-5681}/
+      - GENERIC_TIMEZONE=Europe/Moscow
+      - TZ=Europe/Moscow
+      # Fixed demo value: credentials survive container re-creation. Not a production secret.
+      - N8N_ENCRYPTION_KEY=${DEMO05_ENCRYPTION_KEY:-m2-demo-05-n8n-rag-not-a-secret}
+      # No telemetry, no update pop-ups, no onboarding survey.
+      - N8N_DIAGNOSTICS_ENABLED=false
+      - N8N_VERSION_NOTIFICATIONS_ENABLED=false
+      - N8N_PERSONALIZATION_ENABLED=false
+      - N8N_HIRING_BANNER_ENABLED=false
+      - N8N_RUNNERS_ENABLED=true
+      # n8n 2.x only reads files from an allow-listed folder (default ~/.n8n-files).
+      - N8N_RESTRICT_FILE_ACCESS_TO=/data/corpus
+    volumes:
+      # Named volume: SQLite on a macOS bind mount gives SQLITE_IOERR.
+      - n8n_data:/home/node/.n8n
+      # The shared Lumen corpus, read-only.
+      - ../_shared/corpus:/data/corpus:ro
+
+volumes:
+  qdrant_data:
+  n8n_data:

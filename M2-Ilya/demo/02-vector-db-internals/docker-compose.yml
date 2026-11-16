@@ -1,0 +1,44 @@
+name: m2-demo-vector-db
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    ports:
+      - "127.0.0.1:6351:6333"   # REST API + dashboard: http://localhost:6351/dashboard
+      - "127.0.0.1:6352:6334"   # gRPC (the loader uses it for fast bulk upload)
+    volumes:
+      - qdrant_storage:/qdrant/storage
+    # Keep the laptop responsive: other demos run in parallel.
+    cpus: 4
+    mem_limit: 3g
+    healthcheck:
+      # The image has no curl/wget; bash /dev/tcp is enough to see the port is open.
+      test: ["CMD-SHELL", "bash -c 'exec 3<>/dev/tcp/127.0.0.1/6333 && printf \"GET /readyz HTTP/1.0\\r\\n\\r\\n\" >&3 && grep -q \"200 OK\" <&3'"]
+      interval: 2s
+      timeout: 2s
+      retries: 30
+
+  demo:
+    build: .
+    image: m2-demo-vector-db-runner:1
+    profiles: ["tools"]          # started only via `docker compose run demo ...`
+    depends_on:
+      qdrant:
+        condition: service_healthy
+    environment:
+      QDRANT_HOST: qdrant
+      QDRANT_HTTP_PORT: "6333"
+      QDRANT_GRPC_PORT: "6334"
+      OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+      N_POINTS: ${N_POINTS:-50000}
+      COLUMNS: "120"
+    volumes:
+      - ./scripts:/app/scripts:ro
+      - ./data:/app/data
+      - ./cache:/app/cache
+    working_dir: /app
+    cpus: 2
+    mem_limit: 2g
+
+volumes:
+  qdrant_storage:

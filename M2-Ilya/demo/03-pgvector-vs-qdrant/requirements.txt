@@ -1,0 +1,7 @@
+psycopg[binary]==3.3.6
+pgvector==0.5.1
+httpx==0.28.1
+openai==3.42.0
+tiktoken==0.14.0
+rich==15.0.0
+numpy==2.5.4

@@ -1,0 +1,52 @@
+# 50 natural-language queries (English: the DBpedia corpus is English).
+# Embedded once with text-embedding-3-large (dimensions=1536) and cached in cache/.
+physicist who developed the theory of relativity
+river that flows through several European capitals
+rock band from Liverpool formed in the 1960s
+programming language created at Bell Labs
+ancient city destroyed by a volcanic eruption
+football club based in Madrid
+painter of the Sistine Chapel ceiling
+largest desert in Africa
+novel about a whale hunt written in the 19th century
+company that makes electric cars
+mountain range between France and Spain
+first person to walk on the moon
+opera composed by an Italian composer about a courtesan
+island nation in the Indian Ocean known for lemurs
+civil war fought in the United States in the 1860s
+chemical element used in nuclear reactors
+Japanese video game company that created Mario
+philosopher who wrote about the social contract
+university in Massachusetts famous for technology
+Olympic sprinter from Jamaica
+television series about a chemistry teacher making drugs
+bird that cannot fly and lives in New Zealand
+treaty that ended the First World War
+jazz trumpet player from New Orleans
+search engine company founded in a garage
+Roman emperor who built a wall in Britain
+disease caused by a mosquito-borne parasite
+music festival held in the desert in California
+spacecraft that left the solar system
+Russian writer of War and Peace
+airport serving the city of London
+dinosaur with three horns on its face
+battle where Napoleon was finally defeated
+cathedral in Paris damaged by fire in 2019
+computer scientist who proposed a test for machine intelligence
+dog breed originally from Siberia
+famous bridge in San Francisco
+religious leader of Tibetan Buddhism
+board game played on a checkered board with kings and queens
+hip hop artist from Compton
+volcano in Iceland that disrupted air travel
+Greek god of the sea
+newspaper published in New York since 1851
+stadium where the FIFA World Cup final 2014 was played
+village in England known for a stone circle
+economist who wrote The Wealth of Nations
+lake on the border between Peru and Bolivia
+animated film studio that made Toy Story
+political party founded by Nelson Mandela's movement
+cyclist who won the Tour de France many times

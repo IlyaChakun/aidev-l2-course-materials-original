@@ -1,0 +1,24 @@
+{
+  "version": 1,
+  "language": "en",
+  "origin_note": "All questions were drafted by the coding agent (a model) from the corpus, phrased as customers would write them (not copying headings), and must be read and approved by a human before the numbers count as results. Written and committed BEFORE ingestion and metrics.",
+  "questions": [
+    {"id": "q01", "kind": "core", "question": "I clicked 'forgot password' but the reset email never showed up. What should I check?", "answer_docs": ["account-and-login.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q02", "kind": "core", "question": "How long does the invitation link stay valid when I add a new teammate?", "answer_docs": ["team-and-roles.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q03", "kind": "core", "question": "Paying by card fails with error E-4012. What does it mean and what can I do?", "answer_docs": ["payment-errors-reference.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q04", "kind": "core", "question": "I press Export on my monthly report and nothing gets downloaded. Any idea why?", "answer_docs": ["reports-and-exports.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q05", "kind": "core", "question": "Alerts about new orders reach my phone 15 to 20 minutes late. How do I fix that?", "answer_docs": ["notifications-and-alerts.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q06", "kind": "core", "question": "How many API calls per minute am I allowed on the Team plan?", "answer_docs": ["integrations-and-api.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q07", "kind": "core", "question": "I bought a yearly plan two months ago and changed my mind. Can I still get my money back?", "answer_docs": ["refund-and-cancellation-policy.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q08", "kind": "core", "question": "Which web browsers can I use with Lumen?", "answer_docs": ["system-requirements-and-browsers.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q09", "kind": "core", "question": "After I delete my workspace, how long is my data still kept anywhere?", "answer_docs": ["data-privacy-and-gdpr-requests.md"], "origin": "model-drafted, human review pending"},
+    {"id": "q10", "kind": "core", "question": "The app crashes whenever I open a report and the log says 'unhandled exception on open'. What is going on?", "answer_docs": ["release-notes-and-known-issues.md"], "origin": "model-drafted, human review pending"},
+    {"id": "t01", "kind": "trap", "question": "How do I connect Lumen to Salesforce?", "answer_docs": [], "origin": "model-drafted, human review pending", "note": "Salesforce appears nowhere in the corpus; the agent must say it found nothing."},
+    {"id": "t02", "kind": "trap", "question": "How do I turn on dark mode in the mobile app?", "answer_docs": [], "origin": "model-drafted, human review pending", "note": "Dark mode appears nowhere in the corpus; the agent must say it found nothing."},
+    {"id": "m01", "kind": "multi", "question": "I'm on the Starter plan and need to export about 50,000 rows. Is that possible, and which plan would I need?", "answer_docs": ["reports-and-exports.md", "plans-and-pricing.md"], "origin": "model-drafted, human review pending", "note": "block A: row limits live in reports-and-exports, plan prices in plans-and-pricing"},
+    {"id": "m02", "kind": "multi", "question": "I want to cancel my annual subscription and take all my data with me. What do I do and in which order?", "answer_docs": ["refund-and-cancellation-policy.md", "data-privacy-and-gdpr-requests.md"], "origin": "model-drafted, human review pending", "note": "block A"},
+    {"id": "m03", "kind": "multi", "question": "Nobody in our company can sign in and every page shows a 503. How serious is this, and how fast will you respond on the Business plan?", "answer_docs": ["service-status-and-incidents.md", "support-hours-and-sla.md"], "origin": "model-drafted, human review pending", "note": "block A"},
+    {"id": "m04", "kind": "multi", "question": "Our contract promises a 10% discount but my invoice does not show it. Can support fix that, and where do I find the invoice?", "answer_docs": ["enterprise-contracts-and-discounts.md", "billing-invoices-and-payments.md"], "origin": "model-drafted, human review pending", "note": "block A"},
+    {"id": "m05", "kind": "multi", "question": "All 15 seats on our Team workspace are taken. What would five more people cost, and who is allowed to invite them?", "answer_docs": ["plans-and-pricing.md", "team-and-roles.md"], "origin": "model-drafted, human review pending", "note": "block A"}
+  ]
+}

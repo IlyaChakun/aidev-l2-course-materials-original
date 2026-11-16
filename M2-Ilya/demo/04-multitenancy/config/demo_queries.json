@@ -1,0 +1,18 @@
+{
+  "_comment": "Queries used by the leak demo and the isolation tests. Seeding pre-embeds them so the lecture works offline.",
+  "queries": [
+    "Is there a discount code I can give a customer who asks for a discount?",
+    "What is the floor price for the Business plan and is there a partner discount code?",
+    "What are the support hours?",
+    "How many days does a customer have to report a billing error for a refund?",
+    "What is the floor price for the Business plan?",
+    "How do I reset two-factor authentication?",
+    "warehouse pallet",
+    "Which internal discount codes exist?"
+  ],
+  "probe_doc": {
+    "doc_id": "probe-doc",
+    "title": "Probe document",
+    "text": "Unique probe sentence about the zebra-striped onboarding checklist. Written by an acme user who tried to set tenant_id=globex in the request body."
+  }
+}

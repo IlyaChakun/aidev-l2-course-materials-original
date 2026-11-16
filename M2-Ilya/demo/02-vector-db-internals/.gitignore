@@ -1,0 +1,7 @@
+# Downloaded dataset and converted arrays (hundreds of MB)
+data/
+# Cached query embeddings and run stats
+cache/
+.env
+.venv/
+__pycache__/

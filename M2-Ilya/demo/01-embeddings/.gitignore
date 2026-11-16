@@ -1,0 +1,5 @@
+.venv/
+.env
+__pycache__/
+*.tmp.npz
+# data/cache is NOT ignored on purpose: it is the offline fallback for the lecture.

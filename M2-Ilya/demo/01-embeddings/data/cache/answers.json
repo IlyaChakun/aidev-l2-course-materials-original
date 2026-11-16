@@ -1,0 +1,7 @@
+{
+ "78d61405773e3931041cafff2dd018cccef179c9cba87e989a81cd9df692d61d": "The invitation link is valid for **7 days**. \n\nSources: team-and-roles.md",
+ "5cefaeda5bd6ed8a271439719726f5d9922982995b75cbb943b8cec6dda2395d": "Not covered by the knowledge base.",
+ "adecd2526615bd6ffb21f7cef480a974aaab391f684be74a81bfc9b084011eca": "No, it is not possible to export 50,000 rows on the Starter plan, as it has a maximum limit of 10,000 rows per export. You would need to upgrade to the Team plan, which allows for up to 100,000 rows per export. \n\nSources: reports-and-exports.md, plans-and-pricing.md",
+ "fed5627b96776e434d1aafd8e241e4ea0e7cdd18ced735b4fe0dc21a5df0030a": "This situation is classified as a SEV1 incident since the entire workspace or all users are blocked, which means that sign-in is impossible for everyone. The response will be prioritized, and customers will be updated quickly. \n\nSources: [4]",
+ "9e7dccec250cdd67ebe3afa908ff25b2df58c1373032db64a63d618503750ad1": "This situation is classified as a SEV1 incident because the entire workspace or all users are blocked, which corresponds to an HTTP 503 error affecting everyone. The response time for SEV1 incidents is typically very fast, as it indicates a critical issue that needs immediate attention.\n\nSources: service-status-and-incidents.md"
+}

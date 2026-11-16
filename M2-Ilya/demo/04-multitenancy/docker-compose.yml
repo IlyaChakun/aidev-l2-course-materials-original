@@ -1,0 +1,78 @@
+name: m2-demo-multitenancy
+
+x-app-env: &app-env
+  OPENAI_API_KEY: ${OPENAI_API_KEY:-}
+  QDRANT_URL: http://qdrant:6333
+  PG_ADMIN_DSN: postgresql://postgres:postgres@postgres:5432/kb
+  PG_APP_DSN: postgresql://app_user:app_pass@postgres:5432/kb
+  API_URL: http://api:8000
+  SHARED_CORPUS: /shared/corpus
+  PYTHONPATH: /app
+
+services:
+  qdrant:
+    image: qdrant/qdrant:v1.19.2
+    # Distributed mode with a single peer. Needed for custom sharding / shard keys
+    # (tiered multitenancy): in standalone mode PUT /collections/{c}/shards answers
+    # "Qdrant is running in standalone mode". Everything else works the same.
+    command: ["./qdrant", "--uri", "http://qdrant:6335"]
+    environment:
+      QDRANT__CLUSTER__ENABLED: "true"
+    ports:
+      - "127.0.0.1:6371:6333"   # REST + Web UI (/dashboard)
+      - "127.0.0.1:6372:6334"   # gRPC
+    volumes:
+      - qdrant_data:/qdrant/storage
+    healthcheck:
+      test: ["CMD-SHELL", "bash -c ':> /dev/tcp/127.0.0.1/6333' || exit 1"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  postgres:
+    image: pgvector/pgvector:0.8.7-pg17
+    environment:
+      POSTGRES_PASSWORD: postgres   # demo only
+      POSTGRES_DB: kb
+    ports:
+      - "127.0.0.1:5451:5432"
+    volumes:
+      - pg_data:/var/lib/postgresql/data
+      - ./sql:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U postgres -d kb"]
+      interval: 3s
+      timeout: 3s
+      retries: 30
+
+  api:
+    build: .
+    image: m2-demo-multitenancy-app:local
+    command: uvicorn app.api:app --host 0.0.0.0 --port 8000
+    environment:
+      <<: *app-env
+      DEMO_UNSAFE_ENABLED: "1"   # mounts /debug/search_unsafe for the leak demo. Never in prod.
+    ports:
+      - "127.0.0.1:8471:8000"
+    volumes:
+      - .:/app
+      - ../_shared:/shared:ro
+    depends_on:
+      qdrant: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+
+  tools:
+    image: m2-demo-multitenancy-app:local
+    profiles: ["tools"]
+    entrypoint: ["python"]
+    environment: *app-env
+    volumes:
+      - .:/app
+      - ../_shared:/shared:ro
+    depends_on:
+      qdrant: {condition: service_healthy}
+      postgres: {condition: service_healthy}
+
+volumes:
+  qdrant_data:
+  pg_data:
