@@ -1,0 +1,10 @@
+# Demo 1 · bare loop. Run 1: one question, two tools, a budget of 10.
+# The model asks, the for loop runs the tools. Point at input_tokens: 98 -> 152 -> 217.
+$PY loop.py "What is ticket 2 about, and is there an article that answers it?"
+
+# Run 2: the same question with a budget of 2.
+# It ends on the for ... else branch, not with an answer.
+MAX_STEPS=2 $PY loop.py "What is ticket 2 about, and is there an article that answers it?"
+
+# Optional, only with time to spare: a tool error comes back as an observation.
+$PY loop.py "What is ticket 99 about?"

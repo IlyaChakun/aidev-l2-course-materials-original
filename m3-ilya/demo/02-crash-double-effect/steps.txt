@@ -1,0 +1,21 @@
+# Demo 2 · crash and double effect. Before the lecture: $PY crash.py reset
+# start: send writes to outbox.txt, then the process dies before the node returns.
+$PY crash.py start t1
+
+# The last snapshot is from before send: next=('send',).
+$PY crash.py state t1
+
+# A new process on the same thread: send runs again from its first line.
+$PY crash.py resume t1
+
+# Two identical lines: the customer got the reply twice.
+cat outbox.txt
+
+# The same crash on a new thread, with an idempotency key (ticket id + draft hash).
+$PY crash.py start t2 --idempotent
+
+# The second attempt finds its own key and skips the write.
+$PY crash.py resume t2 --idempotent
+
+# The two t1 lines, then exactly one line for t2.
+cat outbox.txt

@@ -1,0 +1,23 @@
+@env demo3.env
+@cwd $STS
+# Demo 3 · the homework on the Operator. Turns 1-2 on a1 and the paused b1 were run before the lecture (prepare.sh).
+# Turn 3 is a new process: look for "continuing the saved conversation". /submit opens the write tool, it approves nothing.
+$PY agent_v2/agent.py start a1 "Good. Store your decision for ticket 2 now. /submit"
+
+# The pause lives in the snapshot, no process is running: next ('tools',), one pending pause.
+$PY agent_v2/agent.py state a1
+
+# A new process answers the pause: the write happens once, outcome=submitted.
+$PY agent_v2/agent.py resume a1 approve
+
+# The same answer again: no pending pause, nothing executed, the model is not called.
+$PY agent_v2/agent.py resume a1 approve
+
+# b1 was paused before the lecture: the pause survived all this time with no process.
+$PY agent_v2/agent.py state b1
+
+# Reject: the action is not executed, a tool result with the refusal stays in the history.
+$PY agent_v2/agent.py resume b1 reject
+
+# A new thread on the same file starts empty.
+$PY agent_v2/agent.py state c1
